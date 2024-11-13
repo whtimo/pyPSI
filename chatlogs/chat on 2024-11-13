@@ -147,3 +147,67 @@ The output CSV will contain three columns:
 
 You can modify the parameters (threshold_value, window_size_x, window_size_y) according to your specific needs when calling the function.
 
+> Please help me in writing Python code to visualize some intermediate results. Given a CSV file containing sample, line, amplitude dispersion index and a complex SAR file given as complex float tiff file, I want to visualize the amplitude of the SAR image and add the points in the CSV file as red points on top of that. Please use rasterio to read the tiff file. Just show me the code, do not run in in the interpreter.
+
+I'll help you write Python code to visualize the SAR image amplitude with points from the CSV file overlaid. Here's the code that accomplishes this task:
+
+```python
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import rasterio
+
+# Read the complex SAR data using rasterio
+with rasterio.open('path_to_your_complex_sar.tiff') as src:
+    # Read the complex data
+    complex_data = src.read(1)
+    # Get the transform for correct coordinate mapping
+    transform = src.transform
+
+# Calculate amplitude from complex data
+amplitude = np.abs(complex_data)
+
+# Read the CSV file with points
+points_df = pd.read_csv('path_to_your_points.csv')
+
+# Create the visualization
+plt.figure(figsize=(12, 8))
+
+# Plot the amplitude image
+# Using log scale for better visualization of SAR amplitude
+plt.imshow(10 * np.log10(amplitude), 
+           cmap='gray',
+           extent=[transform[2], 
+                  transform[2] + transform[0] * amplitude.shape[1],
+                  transform[5] + transform[4] * amplitude.shape[0],
+                  transform[5]])
+
+# Overlay the points from CSV
+# Assuming 'line' and 'sample' columns represent pixel coordinates
+plt.scatter(points_df['sample'], points_df['line'], 
+           c='red', 
+           s=50, 
+           marker='o',
+           label='Points')
+
+plt.colorbar(label='Amplitude [dB]')
+plt.title('SAR Image Amplitude with Points Overlay')
+plt.xlabel('Range [pixels]')
+plt.ylabel('Azimuth [pixels]')
+plt.legend()
+plt.grid(True)
+plt.show()
+```
+
+This code:
+1. Imports necessary libraries
+2. Reads the complex SAR data using rasterio
+3. Calculates the amplitude from complex data
+4. Reads the CSV file containing the points
+5. Creates a figure showing the amplitude in grayscale (using log scale which is common for SAR visualization)
+6. Overlays the points from the CSV file in red
+7. Adds appropriate labels and colorbar
+
+Note: You'll need to replace 'path_to_your_complex_sar.tiff' and 'path_to_your_points.csv' with your actual file paths.
+
+Also, depending on how your coordinate system is defined, you might need to adjust the scatter plot coordinates. The current code assumes the CSV coordinates are in the same coordinate system as the image pixels.

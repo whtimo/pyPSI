@@ -23,7 +23,7 @@ plt.figure(figsize=(12, 8))
 
 # Plot the amplitude image
 # Using log scale for better visualization of SAR amplitude
-plt.imshow(10 * np.log10(amplitude),
+plt.imshow(10 * np.log10(amplitude + 1e-10),
            cmap='gray',
            extent=[transform[2],
                   transform[2] + transform[0] * amplitude.shape[1],

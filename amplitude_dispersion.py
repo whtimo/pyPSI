@@ -32,7 +32,7 @@ def calculate_amplitude_dispersion(
     logger = logging.getLogger(__name__)
 
     # Get list of input files
-    image_files = list(Path(input_directory).glob('*.tif'))
+    image_files = list(Path(input_directory).glob('*.tiff'))
     if not image_files:
         raise ValueError(f"No TIFF files found in {input_directory}")
 
@@ -116,8 +116,11 @@ def calculate_amplitude_dispersion(
 
 if __name__ == "__main__":
     # Example usage
-    input_dir = "./sar_images"  # Directory containing complex SAR images
-    output_file = "./amplitude_dispersion.tif"  # Output file path
+    #input_dir = "./sar_images"  # Directory containing complex SAR images
+    #output_file = "./amplitude_dispersion.tif"  # Output file path
+
+    input_dir = "/home/timo/Data/LasVegasDesc/resampled"
+    output_file = "/home/timo/Data/LasVegasDesc/amplitude_dispersion.tif"
 
     try:
         stats = calculate_amplitude_dispersion(input_dir, output_file)

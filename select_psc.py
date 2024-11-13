@@ -65,11 +65,17 @@ def process_amplitude_dispersion(
 
 # Example usage:
 if __name__ == "__main__":
-    input_path = "path/to/your/amplitude_dispersion.tif"
-    output_path = "path/to/your/output.csv"
-    threshold = 0.4  # Example threshold value
-    window_x = 5  # Example window size in x direction
-    window_y = 5  # Example window size in y direction
+    # input_path = "path/to/your/amplitude_dispersion.tif"
+    # output_path = "path/to/your/output.csv"
+    # threshold = 0.4  # Example threshold value
+    # window_x = 5  # Example window size in x direction
+    # window_y = 5  # Example window size in y direction
+
+    input_path = "/home/timo/Data/LasVegasDesc/amplitude_dispersion.tif"
+    output_path = "/home/timo/Data/LasVegasDesc/aps_psc.csv"
+    threshold = 0.25
+    window_x = 10
+    window_y = 10
 
     results = process_amplitude_dispersion(
         input_path,

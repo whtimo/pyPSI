@@ -34,7 +34,7 @@ plt.imshow(10 * np.log10(amplitude + 1e-10),
 # Assuming 'line' and 'sample' columns represent pixel coordinates
 plt.scatter(points_df['sample'], points_df['line'],
            c='red',
-           s=50,
+           s=0.5, #changed manually to be smaller
            marker='o',
            label='Points')
 

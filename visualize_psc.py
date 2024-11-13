@@ -4,7 +4,8 @@ import matplotlib.pyplot as plt
 import rasterio
 
 # Read the complex SAR data using rasterio
-with rasterio.open('path_to_your_complex_sar.tiff') as src:
+#with rasterio.open('path_to_your_complex_sar.tiff') as src:
+with rasterio.open('/home/timo/Data/LasVegasDesc/resampled/TSX-1_0_2010-09-19.tiff') as src:
     # Read the complex data
     complex_data = src.read(1)
     # Get the transform for correct coordinate mapping
@@ -14,7 +15,8 @@ with rasterio.open('path_to_your_complex_sar.tiff') as src:
 amplitude = np.abs(complex_data)
 
 # Read the CSV file with points
-points_df = pd.read_csv('path_to_your_points.csv')
+#points_df = pd.read_csv('path_to_your_points.csv')
+points_df = pd.read_csv('/home/timo/Data/LasVegasDesc/aps_psc.csv')
 
 # Create the visualization
 plt.figure(figsize=(12, 8))

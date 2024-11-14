@@ -58,7 +58,7 @@ def process_amplitude_dispersion(
         })
 
         # Save to CSV
-        results_df.to_csv(output_csv_path, index=False)
+        results_df.to_csv(output_csv_path, index=True) #added indexing
 
         return results_df
 
@@ -73,9 +73,9 @@ if __name__ == "__main__":
 
     input_path = "/home/timo/Data/LasVegasDesc/amplitude_dispersion.tif"
     output_path = "/home/timo/Data/LasVegasDesc/aps_psc.csv"
-    threshold = 0.25
-    window_x = 10
-    window_y = 10
+    threshold = 0.20
+    window_x = 20
+    window_y = 20
 
     results = process_amplitude_dispersion(
         input_path,

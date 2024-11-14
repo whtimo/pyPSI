@@ -6,7 +6,9 @@ import numpy.ma as ma
 
 # Read the input files
 # SAR image
-with rasterio.open('sar_image.tiff') as src:
+
+#with rasterio.open('sar_image.tiff') as src:
+with rasterio.open('/home/timo/Data/LasVegasDesc/resampled/TSX-1_0_2010-09-19.tiff') as src:
     # Read complex data
     sar_data = src.read(1)
     # Calculate amplitude
@@ -16,17 +18,19 @@ with rasterio.open('sar_image.tiff') as src:
     transform = src.transform
 
 # Read points and triangles
-points_df = pd.read_csv('points.csv')
+#points_df = pd.read_csv('points.csv')
+points_df = pd.read_csv('/home/timo/Data/LasVegasDesc/aps_psc.csv')
 # Rename the unnamed first column to 'point_id'
 points_df = points_df.rename(columns={points_df.columns[0]: 'point_id'})
 
-triangles_df = pd.read_csv('triangulation_results.csv')
+#triangles_df = pd.read_csv('triangulation_results.csv')
+triangles_df = pd.read_csv('/home/timo/Data/LasVegasDesc/triangulation_results.csv')
 
 # Create the plot
 plt.figure(figsize=(12, 8))
 
 # Plot SAR amplitude in dB scale with proper colormap
-amplitude_db = 20 * np.log10(amplitude)
+amplitude_db = 20 * np.log10(amplitude + 1e-10) #manually added +1e-10 based on the debugging info Claude gave last time
 # Mask potential invalid values (zeros or very small values)
 amplitude_db = ma.masked_where(amplitude_db < -50, amplitude_db)
 

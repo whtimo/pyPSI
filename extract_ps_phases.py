@@ -22,7 +22,8 @@ def extract_date_from_filename(filename: str) -> str:
         ISO date string
     """
     # Regular expression to find ISO date pattern before .tiff
-    date_pattern = r'\d{4}-\d{2}-\d{2}(?=\.tiff)'
+    #date_pattern = r'\d{4}-\d{2}-\d{2}(?=\.tiff)'
+    date_pattern = r'\d{4}-\d{2}-\d{2}(?=\.topo.interfero.tiff)'
     match = re.search(date_pattern, filename)
     if match:
         return match.group(0)
@@ -104,15 +105,18 @@ def extract_ps_phases(ps_csv_path: str,
 
     # Create output DataFrame and save to CSV
     output_df = pd.DataFrame(results)
-    output_df.to_csv(output_csv_path, index=False)
+    output_df.to_csv(output_csv_path, index=True) # manually changed index to True
 
 
 # Example usage:
 if __name__ == "__main__":
     # Define paths
-    PS_CSV_PATH = "path/to/ps_coordinates.csv"
-    INTERFEROGRAM_DIR = "path/to/interferogram/directory"
-    OUTPUT_CSV_PATH = "path/to/output/ps_phases.csv"
+    # PS_CSV_PATH = "path/to/ps_coordinates.csv"
+    # INTERFEROGRAM_DIR = "path/to/interferogram/directory"
+    # OUTPUT_CSV_PATH = "path/to/output/ps_phases.csv"
+    PS_CSV_PATH = "/home/timo/Data/LasVegasDesc/aps_psc.csv"
+    INTERFEROGRAM_DIR = "/home/timo/Data/LasVegasDesc/topo"
+    OUTPUT_CSV_PATH = "/home/timo/Data/LasVegasDesc/aps_psc_phases.csv"
 
     # Extract phases and save to CSV
     extract_ps_phases(PS_CSV_PATH, INTERFEROGRAM_DIR, OUTPUT_CSV_PATH)

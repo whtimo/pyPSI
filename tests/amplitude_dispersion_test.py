@@ -66,7 +66,7 @@ class TestAmplitudeDispersion(unittest.TestCase):
             image[75, 75] = complex(noisy_real, noisy_imag)
 
             # Save image
-            filename = os.path.join(cls.test_dir, f'test_image_{i:03d}.tif')
+            filename = os.path.join(cls.test_dir, f'test_image_{i:03d}.tiff')
             with rasterio.open(filename, 'w', **cls.profile) as dst:
                 dst.write(image, 1)
 
@@ -138,7 +138,7 @@ class TestAmplitudeDispersion(unittest.TestCase):
         stats = calculate_amplitude_dispersion(self.test_dir, self.output_file)
 
         # Compare input and output geospatial properties
-        with rasterio.open(os.path.join(self.test_dir, 'test_image_000.tif')) as src_in:
+        with rasterio.open(os.path.join(self.test_dir, 'test_image_000.tiff')) as src_in:
             with rasterio.open(self.output_file) as src_out:
                 self.assertEqual(src_in.crs, src_out.crs)
                 self.assertEqual(src_in.transform, src_out.transform)
@@ -180,3 +180,6 @@ def validate_with_reference_data(test_output, reference_file):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+#Comment: manual changes by generating files with *.tiff instead of .tif to better fit with previous small changes

@@ -238,7 +238,8 @@ class PSNetwork:
             raise KeyError(f"Key {key} not found in PSNetwork")
 
 # Read the CSV file
-df = pd.read_csv('your_file.csv')
+#df = pd.read_csv('your_file.csv')
+df = pd.read_csv('/home/timo/Data/LasVegasDesc/aps_psc_phases.csv')
 
 # Get the column names that are dates (skip the first 3 columns)
 date_columns = df.columns[3:]
@@ -246,4 +247,6 @@ date_columns = df.columns[3:]
 # Convert the date strings to datetime objects and store in a list
 dates = [datetime.strptime(date, '%Y-%m-%d') for date in date_columns]
 
-ps_network = PSNetwork(dates, "/path/to/xml/files")
+#ps_network = PSNetwork(dates, "/path/to/xml/files")
+ps_network = PSNetwork(dates, "/home/timo/Data/LasVegasDesc/topo")
+

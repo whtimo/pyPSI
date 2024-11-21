@@ -199,7 +199,7 @@ class PSNetwork:
         self._process_network_edges()
 
     def _process_network_edges(self):
-        """Process triangle and points files to create edge data"""
+        """Process triangle and points files to create edge data using complex numbers"""
         # Read the triangles and points
         triangles_df = pd.read_csv(self.triangle_file)
         points_df = pd.read_csv(self.points_file, index_col=0)
@@ -213,17 +213,18 @@ class PSNetwork:
             # Get points of the triangle
             p1, p2, p3 = triangle[['point1_id', 'point2_id', 'point3_id']]
 
-            # Get phase data for each point
-            p1_phases = points_df.loc[p1, self.dates[0].strftime('%Y-%m-%d'):self.dates[-1].strftime('%Y-%m-%d')]
-            p2_phases = points_df.loc[p2, self.dates[0].strftime('%Y-%m-%d'):self.dates[-1].strftime('%Y-%m-%d')]
-            p3_phases = points_df.loc[p3, self.dates[0].strftime('%Y-%m-%d'):self.dates[-1].strftime('%Y-%m-%d')]
+            # Get phase data for each point and convert to complex
+            date_cols = [d.strftime('%Y-%m-%d') for d in self.dates]
+            p1_complex = np.exp(1j * points_df.loc[p1, date_cols].values)
+            p2_complex = np.exp(1j * points_df.loc[p2, date_cols].values)
+            p3_complex = np.exp(1j * points_df.loc[p3, date_cols].values)
 
             # Create edges (3 edges per triangle)
             # Edge 1: p1 -> p2
             self._edges[edge_counter] = {
                 'start_point': p1,
                 'end_point': p2,
-                'phase_differences': p1_phases.values - p2_phases.values
+                'phase_differences': np.angle(p1_complex * np.conjugate(p2_complex))
             }
             edge_counter += 1
 
@@ -231,7 +232,7 @@ class PSNetwork:
             self._edges[edge_counter] = {
                 'start_point': p2,
                 'end_point': p3,
-                'phase_differences': p2_phases.values - p3_phases.values
+                'phase_differences': np.angle(p2_complex * np.conjugate(p3_complex))
             }
             edge_counter += 1
 
@@ -239,7 +240,7 @@ class PSNetwork:
             self._edges[edge_counter] = {
                 'start_point': p3,
                 'end_point': p1,
-                'phase_differences': p3_phases.values - p1_phases.values
+                'phase_differences': np.angle(p3_complex * np.conjugate(p1_complex))
             }
             edge_counter += 1
 

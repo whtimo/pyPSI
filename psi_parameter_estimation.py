@@ -192,6 +192,9 @@ class PSNetwork:
         self._process_xml_files()
 
     def _process_xml_files(self):
+        # Speed of light in meters per second
+        SPEED_OF_LIGHT = 299792458.0
+
         # Initialize arrays with the same length as dates
         n_dates = len(self.dates)
         self._temporal_baselines = np.zeros(n_dates)
@@ -222,6 +225,25 @@ class PSNetwork:
                 if wavelength_elem is not None:
                     self._wavelength = float(wavelength_elem.text)
 
+            # Find all Grid elements
+            grid_elements = root.findall('.//Grid')
+            if grid_elements:
+                # Find the center grid
+                n_grids = len(grid_elements)
+                center_grid = grid_elements[n_grids // 2]
+
+                # Extract incidence angle
+                incidence_angle_elem = center_grid.find('IncidenceAngle')
+                if incidence_angle_elem is not None:
+                    self._incidence_angles[idx] = float(incidence_angle_elem.text)
+
+                # Extract range time and convert to distance
+                range_time_elem = center_grid.find('RangeTime')
+                if range_time_elem is not None:
+                    range_time = float(range_time_elem.text)
+                    # Convert two-way travel time to one-way distance
+                    self._range_distances[idx] = (range_time * SPEED_OF_LIGHT) / 2
+                    
     def __getitem__(self, key: str) -> np.ndarray:
         """Allow dictionary-like access to the network parameters"""
         if key == 'wavelength':

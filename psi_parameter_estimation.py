@@ -226,7 +226,7 @@ class PSNetwork:
                     self._wavelength = float(wavelength_elem.text)
 
             # Find all Grid elements
-            grid_elements = root.findall('.//Grid')
+            grid_elements = root.findall('.//Grid') # Comment timo: I don't like this and think it should only be derive grids from the master not all as this possibly does
             if grid_elements:
                 # Find the center grid
                 n_grids = len(grid_elements)
@@ -272,3 +272,6 @@ dates = [datetime.strptime(date, '%Y-%m-%d') for date in date_columns]
 #ps_network = PSNetwork(dates, "/path/to/xml/files")
 ps_network = PSNetwork(dates, "/home/timo/Data/LasVegasDesc/topo")
 
+parameter_estimator = NetworkParameterEstimator(ps_network)
+
+print('Test')

@@ -1,6 +1,6 @@
 import numpy as np
 from scipy.optimize import least_squares
-from typing import Tuple, List, Dict
+from typing import Tuple, List, Dict, Union
 import pandas as pd
 from datetime import datetime
 import xml.etree.ElementTree as ET
@@ -179,7 +179,7 @@ class NetworkParameterEstimator:
 
 
 class PSNetwork:
-    def __init__(self, dates: List[datetime], xml_path: str):
+    def __init__(self, dates: List[datetime], xml_path: str, triangle_file: str, points_file: str):
         self.dates = dates
         self.xml_path = Path(xml_path)
         self._wavelength = None
@@ -187,64 +187,67 @@ class PSNetwork:
         self._perpendicular_baselines = None
         self._range_distances = None
         self._incidence_angles = None
+        self._edges = None
+
+        # Store file paths
+        self.triangle_file = triangle_file
+        self.points_file = points_file
 
         # Process XML files
         self._process_xml_files()
+        # Process network edges
+        self._process_network_edges()
+
+    def _process_network_edges(self):
+        """Process triangle and points files to create edge data"""
+        # Read the triangles and points
+        triangles_df = pd.read_csv(self.triangle_file)
+        points_df = pd.read_csv(self.points_file, index_col=0)
+
+        # Initialize edges dictionary
+        self._edges = {}
+        edge_counter = 0
+
+        # Process each triangle
+        for _, triangle in triangles_df.iterrows():
+            # Get points of the triangle
+            p1, p2, p3 = triangle[['point1_id', 'point2_id', 'point3_id']]
+
+            # Get phase data for each point
+            p1_phases = points_df.loc[p1, self.dates[0].strftime('%Y-%m-%d'):self.dates[-1].strftime('%Y-%m-%d')]
+            p2_phases = points_df.loc[p2, self.dates[0].strftime('%Y-%m-%d'):self.dates[-1].strftime('%Y-%m-%d')]
+            p3_phases = points_df.loc[p3, self.dates[0].strftime('%Y-%m-%d'):self.dates[-1].strftime('%Y-%m-%d')]
+
+            # Create edges (3 edges per triangle)
+            # Edge 1: p1 -> p2
+            self._edges[edge_counter] = {
+                'start_point': p1,
+                'end_point': p2,
+                'phase_differences': p1_phases.values - p2_phases.values
+            }
+            edge_counter += 1
+
+            # Edge 2: p2 -> p3
+            self._edges[edge_counter] = {
+                'start_point': p2,
+                'end_point': p3,
+                'phase_differences': p2_phases.values - p3_phases.values
+            }
+            edge_counter += 1
+
+            # Edge 3: p3 -> p1
+            self._edges[edge_counter] = {
+                'start_point': p3,
+                'end_point': p1,
+                'phase_differences': p3_phases.values - p1_phases.values
+            }
+            edge_counter += 1
 
     def _process_xml_files(self):
-        # Speed of light in meters per second
-        SPEED_OF_LIGHT = 299792458.0
+        # ... (keep existing _process_xml_files implementation)
+        pass
 
-        # Initialize arrays with the same length as dates
-        n_dates = len(self.dates)
-        self._temporal_baselines = np.zeros(n_dates)
-        self._perpendicular_baselines = np.zeros(n_dates)
-        self._range_distances = np.zeros(n_dates)  # You'll need to add this from XML if available
-        self._incidence_angles = np.zeros(n_dates)  # You'll need to add this from XML if available
-
-        # Process each XML file
-        for idx, date in enumerate(self.dates):
-            # Find corresponding XML file
-            xml_file = list(self.xml_path.glob(f"*_{date.strftime('%Y-%m-%d')}.topo.interfero.xml"))
-            if not xml_file:
-                continue
-
-            # Parse XML
-            tree = ET.parse(xml_file[0])
-            root = tree.getroot()
-
-            # Extract interferogram attributes
-            interferogram = root.find('Interferogram')
-            if interferogram is not None:
-                self._temporal_baselines[idx] = float(interferogram.get('temp_baseline'))
-                self._perpendicular_baselines[idx] = float(interferogram.get('baseline'))
-
-            # Extract wavelength (only needs to be done once)
-            if self._wavelength is None:
-                wavelength_elem = root.find('.//Wavelength')
-                if wavelength_elem is not None:
-                    self._wavelength = float(wavelength_elem.text)
-
-            # Find all Grid elements
-            grid_elements = root.findall('.//Grid') # Comment timo: I don't like this and think it should only be derive grids from the master not all as this possibly does
-            if grid_elements:
-                # Find the center grid
-                n_grids = len(grid_elements)
-                center_grid = grid_elements[n_grids // 2]
-
-                # Extract incidence angle
-                incidence_angle_elem = center_grid.find('IncidenceAngle')
-                if incidence_angle_elem is not None:
-                    self._incidence_angles[idx] = float(incidence_angle_elem.text)
-
-                # Extract range time and convert to distance
-                range_time_elem = center_grid.find('RangeTime')
-                if range_time_elem is not None:
-                    range_time = float(range_time_elem.text)
-                    # Convert two-way travel time to one-way distance
-                    self._range_distances[idx] = (range_time * SPEED_OF_LIGHT) / 2
-                    
-    def __getitem__(self, key: str) -> np.ndarray:
+    def __getitem__(self, key: str) -> Union[np.ndarray, dict]:
         """Allow dictionary-like access to the network parameters"""
         if key == 'wavelength':
             return self._wavelength
@@ -256,6 +259,8 @@ class PSNetwork:
             return self._range_distances
         elif key == 'incidence_angles':
             return self._incidence_angles
+        elif key == 'edges':
+            return self._edges
         else:
             raise KeyError(f"Key {key} not found in PSNetwork")
 

@@ -145,4 +145,4 @@ def select_reference_point(params,
 #params = load_network_parameters('filename')
 params = load_network_parameters('/home/timo/Data/LasVegasDesc/ps_results2.h5')
 reference_point = select_reference_point(params, temporal_coherence_threshold=0.9, min_connections=10)
-save_reference_point(reference_point, 'filename')
+save_reference_point(reference_point, '/home/timo/Data/LasVegasDesc/ref_point2.txt')

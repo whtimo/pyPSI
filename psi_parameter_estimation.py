@@ -153,8 +153,8 @@ class PSIParameterEstimator:
         # Height error bounds can be adjusted based on expected DEM error
         # Velocity bounds based on expected deformation rates
         # Wrapping factors must be integers
-        bounds_lower = [-100, -0.5] + [-5] * n_images  # Example bounds
-        bounds_upper = [100, 0.5] + [5] * n_images
+        bounds_lower = [-100, -0.1] + [-5] * n_images  # Example bounds
+        bounds_upper = [100, 0.1] + [5] * n_images
 
         # Solve using least squares with integer constraints for wrapping factors
         result = least_squares(residual_function,

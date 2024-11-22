@@ -8,7 +8,7 @@ from pathlib import Path
 import h5py
 
 
-def save_network_parameters(params, filename):
+def save_network_parameters(params, ps_network, filename):
     """
     Save network parameters to HDF5 file
 
@@ -16,6 +16,8 @@ def save_network_parameters(params, filename):
     -----------
     params: dict
         Dictionary containing the network parameters
+    ps_network: PSNetwork
+        The PS network object containing edge information
     filename: str
         Path to save the HDF5 file
     """
@@ -29,14 +31,17 @@ def save_network_parameters(params, filename):
     temporal_coherences_array = np.array([params['temporal_coherences'][edge_id] for edge_id in edge_ids])
 
     # For residuals, we need to handle the array of arrays
-    # First, determine the length of residual arrays
     residual_length = len(next(iter(params['residuals'].values())))
     residuals_array = np.zeros((n_edges, residual_length))
     for i, edge_id in enumerate(edge_ids):
         residuals_array[i, :] = params['residuals'][edge_id]
 
+    # Create arrays for network edge information
+    start_points = np.array([ps_network['edges'][edge_id]['start_point'] for edge_id in edge_ids], dtype='S20')
+    end_points = np.array([ps_network['edges'][edge_id]['end_point'] for edge_id in edge_ids], dtype='S20')
+
     # Save edge IDs as strings
-    edge_ids_array = np.array(edge_ids, dtype='S10')  # Adjust dtype size if needed
+    edge_ids_array = np.array(edge_ids, dtype='S10')
 
     with h5py.File(filename, 'w') as f:
         # Create a group for the data
@@ -48,6 +53,11 @@ def save_network_parameters(params, filename):
         data_group.create_dataset('velocities', data=velocities_array)
         data_group.create_dataset('temporal_coherences', data=temporal_coherences_array)
         data_group.create_dataset('residuals', data=residuals_array)
+
+        # Save network edge information
+        network_group = f.create_group('network_edges')
+        network_group.create_dataset('start_points', data=start_points)
+        network_group.create_dataset('end_points', data=end_points)
 
 class PSIParameterEstimator:
     def __init__(self,
@@ -384,7 +394,7 @@ parameter_estimator = NetworkParameterEstimator(ps_network)
 print("Start parameter estimation") # Adding some comments because it is a long process
 params = parameter_estimator.estimate_network_parameters()
 print("Save parameters") # Adding some comments because it is a long process
-save_network_parameters(params, '/home/timo/Data/LasVegasDesc/ps_results2.h5')
+save_network_parameters(params, ps_network, '/home/timo/Data/LasVegasDesc/ps_results2.h5')
 
 
 

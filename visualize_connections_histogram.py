@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import h5py
 
+
 def load_network_parameters(filename):
     """
     Load network parameters from HDF5 file
@@ -20,18 +21,30 @@ def load_network_parameters(filename):
         'height_errors': {},
         'velocities': {},
         'temporal_coherences': {},
-        'residuals': {}
+        'residuals': {},
+        'network_edges': {}
     }
 
     with h5py.File(filename, 'r') as f:
         data_group = f['network_parameters']
+        network_group = f['network_edges']
+
         edge_ids = [id.decode('utf-8') for id in data_group['edge_ids'][:]]
+        start_points = [p.decode('utf-8') for p in network_group['start_points'][:]]
+        end_points = [p.decode('utf-8') for p in network_group['end_points'][:]]
 
         for i, edge_id in enumerate(edge_ids):
+            # Store parameter data
             params['height_errors'][edge_id] = data_group['height_errors'][i]
             params['velocities'][edge_id] = data_group['velocities'][i]
             params['temporal_coherences'][edge_id] = data_group['temporal_coherences'][i]
             params['residuals'][edge_id] = data_group['residuals'][i]
+
+            # Store network edge information
+            params['network_edges'][edge_id] = {
+                'start_point': start_points[i],
+                'end_point': end_points[i]
+            }
 
     return params
 

@@ -7,6 +7,48 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 import h5py
 
+
+def save_network_parameters(params, filename):
+    """
+    Save network parameters to HDF5 file
+
+    Parameters:
+    -----------
+    params: dict
+        Dictionary containing the network parameters
+    filename: str
+        Path to save the HDF5 file
+    """
+    # Convert dictionary data to arrays
+    edge_ids = sorted(list(params['height_errors'].keys()))
+    n_edges = len(edge_ids)
+
+    # Create numpy arrays
+    height_errors_array = np.array([params['height_errors'][edge_id] for edge_id in edge_ids])
+    velocities_array = np.array([params['velocities'][edge_id] for edge_id in edge_ids])
+    temporal_coherences_array = np.array([params['temporal_coherences'][edge_id] for edge_id in edge_ids])
+
+    # For residuals, we need to handle the array of arrays
+    # First, determine the length of residual arrays
+    residual_length = len(next(iter(params['residuals'].values())))
+    residuals_array = np.zeros((n_edges, residual_length))
+    for i, edge_id in enumerate(edge_ids):
+        residuals_array[i, :] = params['residuals'][edge_id]
+
+    # Save edge IDs as strings
+    edge_ids_array = np.array(edge_ids, dtype='S10')  # Adjust dtype size if needed
+
+    with h5py.File(filename, 'w') as f:
+        # Create a group for the data
+        data_group = f.create_group('network_parameters')
+
+        # Save the arrays
+        data_group.create_dataset('edge_ids', data=edge_ids_array)
+        data_group.create_dataset('height_errors', data=height_errors_array)
+        data_group.create_dataset('velocities', data=velocities_array)
+        data_group.create_dataset('temporal_coherences', data=temporal_coherences_array)
+        data_group.create_dataset('residuals', data=residuals_array)
+
 class PSIParameterEstimator:
     def __init__(self,
                  wavelength: float,
@@ -37,9 +79,9 @@ class PSIParameterEstimator:
         self.incidence_angles = incidence_angles
 
     def estimate_parameters_along_edge(self,
-                                       phase_differences: np.ndarray) -> Tuple[float, float, np.ndarray]:
+                                     phase_differences: np.ndarray) -> Tuple[float, float, float, np.ndarray]:
         """
-        Estimate height error and velocity along network edge
+        Estimate height error, velocity, and temporal coherence along network edge
 
         Parameters:
         -----------
@@ -52,6 +94,8 @@ class PSIParameterEstimator:
             Estimated height error
         velocity: float
             Estimated linear velocity
+        temporal_coherence: float
+            Estimated temporal coherence
         residuals: np.ndarray
             Phase residuals after parameter estimation
         """
@@ -127,7 +171,10 @@ class PSIParameterEstimator:
         residuals = phase_differences - (topo_phase + motion_phase)
         residuals = np.angle(np.exp(1j * residuals))
 
-        return height_error, velocity, residuals
+        # Calculate temporal coherence
+        temporal_coherence = np.abs(np.mean(np.exp(1j * residuals)))
+
+        return height_error, velocity, temporal_coherence, residuals
 
 
 class NetworkParameterEstimator:
@@ -161,13 +208,14 @@ class NetworkParameterEstimator:
         network_parameters = {
             'height_errors': {},
             'velocities': {},
+            'temporal_coherences': {},  # New dictionary for temporal coherences
             'residuals': {}
         }
 
-        edges = self.network['edges'].items() # Changes here for providing a counter feedback
+        edges = self.network['edges'].items()
         for edge_id, edge_data in edges:
-            print(f'{edge_id} / {len(edges)}') # Feedback because it is a lengthy process
-            height_error, velocity, residuals = (
+            print(f'{edge_id} / {len(edges)}')
+            height_error, velocity, temporal_coherence, residuals = (
                 self.parameter_estimator.estimate_parameters_along_edge(
                     edge_data['phase_differences']
                 )
@@ -175,6 +223,7 @@ class NetworkParameterEstimator:
 
             network_parameters['height_errors'][edge_id] = height_error
             network_parameters['velocities'][edge_id] = velocity
+            network_parameters['temporal_coherences'][edge_id] = temporal_coherence
             network_parameters['residuals'][edge_id] = residuals
 
         return network_parameters
@@ -335,10 +384,7 @@ parameter_estimator = NetworkParameterEstimator(ps_network)
 print("Start parameter estimation") # Adding some comments because it is a long process
 params = parameter_estimator.estimate_network_parameters()
 print("Save parameters") # Adding some comments because it is a long process
+save_network_parameters(params, '/home/timo/Data/LasVegasDesc/ps_results2.h5')
 
-#with h5py.File('ps_results.h5', 'w') as f:
-with h5py.File('/home/timo/Data/LasVegasDesc/ps_results2.h5', 'w') as f:
-    f.create_dataset('height_errors', data=params['height_errors'])
-    f.create_dataset('velocities', data=params['velocities'])
-    f.create_dataset('residual', data=params['residual'])
+
 

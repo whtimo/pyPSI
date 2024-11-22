@@ -211,3 +211,94 @@ This code:
 Note: You'll need to replace 'path_to_your_complex_sar.tiff' and 'path_to_your_points.csv' with your actual file paths.
 
 Also, depending on how your coordinate system is defined, you might need to adjust the scatter plot coordinates. The current code assumes the CSV coordinates are in the same coordinate system as the image pixels.
+
+> Thanks. Now I want to visualize the results, so lease help me in writing Python code to visualize them. Given a CSV file with the triangles in point1_id, point2_id, point3_id and another CSV file  containing sample, line and the id in the first unnamed column, as well as a complex SAR file given as complex float tiff file, I want to visualize the amplitude of the SAR image and add the triangles as red lines on top of that. Please use rasterio to read the tiff file. Just show me the code, do not run in in the interpreter.
+
+Here's the Python code to visualize the SAR amplitude image with the triangulation overlay:
+
+```python
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import rasterio
+import numpy.ma as ma
+
+# Read the input files
+# SAR image
+with rasterio.open('sar_image.tiff') as src:
+    # Read complex data
+    sar_data = src.read(1)
+    # Calculate amplitude
+    amplitude = np.abs(sar_data)
+    
+    # Get transformation parameters
+    transform = src.transform
+
+# Read points and triangles
+points_df = pd.read_csv('points.csv')
+# Rename the unnamed first column to 'point_id'
+points_df = points_df.rename(columns={points_df.columns[0]: 'point_id'})
+
+triangles_df = pd.read_csv('triangulation_results.csv')
+
+# Create the plot
+plt.figure(figsize=(12, 8))
+
+# Plot SAR amplitude in dB scale with proper colormap
+amplitude_db = 20 * np.log10(amplitude)
+# Mask potential invalid values (zeros or very small values)
+amplitude_db = ma.masked_where(amplitude_db < -50, amplitude_db)
+
+plt.imshow(amplitude_db, 
+          cmap='gray',
+          aspect='equal',
+          extent=[0, amplitude.shape[1], amplitude.shape[0], 0])  # Correct image orientation
+
+# Plot triangles
+for _, triangle in triangles_df.iterrows():
+    # Get points for each triangle
+    point1 = points_df[points_df['point_id'] == triangle['point1_id']]
+    point2 = points_df[points_df['point_id'] == triangle['point2_id']]
+    point3 = points_df[points_df['point_id'] == triangle['point3_id']]
+    
+    # Draw lines between points
+    plt.plot([point1['sample'].values[0], point2['sample'].values[0]], 
+             [point1['line'].values[0], point2['line'].values[0]], 
+             'r-', linewidth=0.5, alpha=0.7)
+    plt.plot([point2['sample'].values[0], point3['sample'].values[0]], 
+             [point2['line'].values[0], point3['line'].values[0]], 
+             'r-', linewidth=0.5, alpha=0.7)
+    plt.plot([point3['sample'].values[0], point1['sample'].values[0]], 
+             [point3['line'].values[0], point1['line'].values[0]], 
+             'r-', linewidth=0.5, alpha=0.7)
+
+plt.colorbar(label='Amplitude [dB]')
+plt.title('SAR Amplitude with Triangulation Overlay')
+plt.xlabel('Sample')
+plt.ylabel('Line')
+
+# Adjust plot limits to match the image extent
+plt.xlim(0, amplitude.shape[1])
+plt.ylim(amplitude.shape[0], 0)  # Reverse y-axis to match image coordinates
+
+plt.tight_layout()
+plt.show()
+```
+
+This code:
+1. Reads the complex SAR TIFF file using rasterio
+2. Calculates the amplitude and converts it to dB scale
+3. Reads the points and triangles from their respective CSV files
+4. Creates a plot with:
+   - SAR amplitude image in grayscale
+   - Triangulation overlay in red
+   - Proper axes labels and colorbar
+5. Handles the coordinate system properly (note that image coordinates have origin at top-left)
+
+You'll need to replace:
+- 'sar_image.tiff' with your SAR image file name
+- 'points.csv' with your points file name
+- 'triangulation_results.csv' with your triangulation results file name
+
+The triangles are plotted with slight transparency (alpha=0.7) and thin lines (linewidth=0.5) to not obscure the underlying SAR image too much. You can adjust these parameters as needed.
+

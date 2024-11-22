@@ -5,7 +5,7 @@ import pandas as pd
 from datetime import datetime
 import xml.etree.ElementTree as ET
 from pathlib import Path
-
+import h5py
 
 class PSIParameterEstimator:
     def __init__(self,
@@ -334,4 +334,9 @@ ps_network = PSNetwork(dates, "/home/timo/Data/LasVegasDesc/topo", "/home/timo/D
 parameter_estimator = NetworkParameterEstimator(ps_network)
 print("Start parameter estimation") # Adding some comments because it is a long process
 params = parameter_estimator.estimate_network_parameters()
+with h5py.File('ps_results.h5', 'w') as f:
+    f.create_dataset('height_errors', data=params['height_errors'])
+    f.create_dataset('velocities', data=params['velocities'])
+    f.create_dataset('residual', data=params['residual'])
+
 print('Test')

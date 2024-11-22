@@ -1,6 +1,20 @@
 import numpy as np
 import h5py
 
+def save_reference_point(reference_point: str, filename: str = 'reference_point.txt'):
+    """
+    Save reference point ID to a text file
+
+    Parameters:
+    -----------
+    reference_point: str
+        ID of the reference point
+    filename: str
+        Path to save the text file
+    """
+    with open(filename, 'w') as f:
+        f.write(reference_point)
+
 def load_network_parameters(filename):
     """
     Load network parameters from HDF5 file
@@ -131,4 +145,4 @@ def select_reference_point(params,
 #params = load_network_parameters('filename')
 params = load_network_parameters('/home/timo/Data/LasVegasDesc/ps_results2.h5')
 reference_point = select_reference_point(params, temporal_coherence_threshold=0.9, min_connections=10)
-print(reference_point)
+save_reference_point(reference_point, 'filename')

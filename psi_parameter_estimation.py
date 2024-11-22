@@ -277,7 +277,8 @@ dates = [datetime.strptime(date, '%Y-%m-%d') for date in date_columns]
 
 #ps_network = PSNetwork(dates, "/path/to/xml/files")
 ps_network = PSNetwork(dates, "/home/timo/Data/LasVegasDesc/topo", "/home/timo/Data/LasVegasDesc/triangulation_results.csv", "/home/timo/Data/LasVegasDesc/aps_psc_phases.csv")
+wv = ps_network['wavelength']
 
 parameter_estimator = NetworkParameterEstimator(ps_network)
-
+params = parameter_estimator.estimate_network_parameters()
 print('Test')

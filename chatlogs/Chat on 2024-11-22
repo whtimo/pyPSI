@@ -50,3 +50,13 @@ I recommend using HDF5 (Option 1) because:
 6. Is widely used in scientific computing
 
 The NumPy .npz format (Option 2) is simpler but less flexible. It's good for smaller datasets and when you need a more straightforward solution.
+
+##### In this case an error happened:
+#  File "/home/timo/src/pyPSI/timo/pypsi/.venv/lib/python3.12/site-packages/h5py/_hl/dataset.py", line 87, in make_new_dset
+#    tid = h5t.py_create(dtype, logical=1)
+#          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+#  File "h5py/h5t.pyx", line 1669, in h5py.h5t.py_create
+#  File "h5py/h5t.pyx", line 1693, in h5py.h5t.py_create
+#  File "h5py/h5t.pyx", line 1753, in h5py.h5t.py_create
+# TypeError: Object dtype dtype('O') has no native HDF5 equivalent
+######################################

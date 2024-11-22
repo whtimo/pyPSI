@@ -72,8 +72,8 @@ if __name__ == "__main__":
     # window_y = 5  # Example window size in y direction
 
     input_path = "/home/timo/Data/LasVegasDesc/amplitude_dispersion.tif"
-    output_path = "/home/timo/Data/LasVegasDesc/aps_psc.csv"
-    threshold = 0.20
+    output_path = "/home/timo/Data/LasVegasDesc/aps_psc2.csv"
+    threshold = 0.075
     window_x = 20
     window_y = 20
 

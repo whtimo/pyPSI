@@ -114,9 +114,9 @@ if __name__ == "__main__":
     # PS_CSV_PATH = "path/to/ps_coordinates.csv"
     # INTERFEROGRAM_DIR = "path/to/interferogram/directory"
     # OUTPUT_CSV_PATH = "path/to/output/ps_phases.csv"
-    PS_CSV_PATH = "/home/timo/Data/LasVegasDesc/aps_psc.csv"
+    PS_CSV_PATH = "/home/timo/Data/LasVegasDesc/aps_psc2.csv"
     INTERFEROGRAM_DIR = "/home/timo/Data/LasVegasDesc/topo"
-    OUTPUT_CSV_PATH = "/home/timo/Data/LasVegasDesc/aps_psc_phases.csv"
+    OUTPUT_CSV_PATH = "/home/timo/Data/LasVegasDesc/aps_psc_phases2.csv"
 
     # Extract phases and save to CSV
     extract_ps_phases(PS_CSV_PATH, INTERFEROGRAM_DIR, OUTPUT_CSV_PATH)

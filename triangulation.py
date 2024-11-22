@@ -4,7 +4,7 @@ from scipy.spatial import Delaunay
 
 # Read the input CSV file, assuming first unnamed column contains IDs
 #df = pd.read_csv('input.csv')
-df = pd.read_csv('/home/timo/Data/LasVegasDesc/aps_psc.csv')
+df = pd.read_csv('/home/timo/Data/LasVegasDesc/aps_psc2.csv')
 # Rename the unnamed first column to 'point_id'
 df = df.rename(columns={df.columns[0]: 'point_id'})
 
@@ -31,4 +31,4 @@ results_df = pd.DataFrame(triangles)
 
 # Save to CSV
 #results_df.to_csv('triangulation_results.csv', index=False)
-results_df.to_csv('/home/timo/Data/LasVegasDesc/triangulation_results.csv', index=False)
+results_df.to_csv('/home/timo/Data/LasVegasDesc/triangulation_results2.csv', index=False)

@@ -164,7 +164,9 @@ class NetworkParameterEstimator:
             'residuals': {}
         }
 
-        for edge_id, edge_data in self.network['edges'].items():
+        edges = self.network['edges'].items() # Changes here for providing a counter feedback
+        for edge_id, edge_data in edges:
+            print(f'{edge_id} / {len(edges)}') # Feedback because it is a lengthy process
             height_error, velocity, residuals = (
                 self.parameter_estimator.estimate_parameters_along_edge(
                     edge_data['phase_differences']
@@ -317,7 +319,7 @@ class PSNetwork:
 
 # Read the CSV file
 #df = pd.read_csv('your_file.csv')
-df = pd.read_csv('/home/timo/Data/LasVegasDesc/aps_psc_phases.csv')
+df = pd.read_csv('/home/timo/Data/LasVegasDesc/aps_psc_phases2.csv')
 
 # Get the column names that are dates (skip the first 3 columns)
 date_columns = df.columns[3:]
@@ -325,10 +327,11 @@ date_columns = df.columns[3:]
 # Convert the date strings to datetime objects and store in a list
 dates = [datetime.strptime(date, '%Y-%m-%d') for date in date_columns]
 
+print("Reading the network") # Adding some comments because it is a long process
 #ps_network = PSNetwork(dates, "/path/to/xml/files")
-ps_network = PSNetwork(dates, "/home/timo/Data/LasVegasDesc/topo", "/home/timo/Data/LasVegasDesc/triangulation_results.csv", "/home/timo/Data/LasVegasDesc/aps_psc_phases.csv")
-wv = ps_network['wavelength']
+ps_network = PSNetwork(dates, "/home/timo/Data/LasVegasDesc/topo", "/home/timo/Data/LasVegasDesc/triangulation_results2.csv", "/home/timo/Data/LasVegasDesc/aps_psc_phases2.csv")
 
 parameter_estimator = NetworkParameterEstimator(ps_network)
+print("Start parameter estimation") # Adding some comments because it is a long process
 params = parameter_estimator.estimate_network_parameters()
 print('Test')

@@ -245,8 +245,58 @@ class PSNetwork:
             edge_counter += 1
 
     def _process_xml_files(self):
-        # ... (keep existing _process_xml_files implementation)
-        pass
+        # Speed of light in meters per second
+        SPEED_OF_LIGHT = 299792458.0
+
+        # Initialize arrays with the same length as dates
+        n_dates = len(self.dates)
+        self._temporal_baselines = np.zeros(n_dates)
+        self._perpendicular_baselines = np.zeros(n_dates)
+        self._range_distances = np.zeros(n_dates)  # You'll need to add this from XML if available
+        self._incidence_angles = np.zeros(n_dates)  # You'll need to add this from XML if available
+
+        # Process each XML file
+        for idx, date in enumerate(self.dates):
+            # Find corresponding XML file
+            xml_file = list(self.xml_path.glob(f"*_{date.strftime('%Y-%m-%d')}.topo.interfero.xml"))
+            if not xml_file:
+                continue
+
+            # Parse XML
+            tree = ET.parse(xml_file[0])
+            root = tree.getroot()
+
+            # Extract interferogram attributes
+            interferogram = root.find('Interferogram')
+            if interferogram is not None:
+                self._temporal_baselines[idx] = float(interferogram.get('temp_baseline'))
+                self._perpendicular_baselines[idx] = float(interferogram.get('baseline'))
+
+            # Extract wavelength (only needs to be done once)
+            if self._wavelength is None:
+                wavelength_elem = root.find('.//Wavelength')
+                if wavelength_elem is not None:
+                    self._wavelength = float(wavelength_elem.text)
+
+            # Find all Grid elements
+            grid_elements = root.findall(
+                './/Grid')  # Comment timo: I don't like this and think it should only be derive grids from the master not all as this possibly does
+            if grid_elements:
+                # Find the center grid
+                n_grids = len(grid_elements)
+                center_grid = grid_elements[n_grids // 2]
+
+                # Extract incidence angle
+                incidence_angle_elem = center_grid.find('IncidenceAngle')
+                if incidence_angle_elem is not None:
+                    self._incidence_angles[idx] = float(incidence_angle_elem.text)
+
+                # Extract range time and convert to distance
+                range_time_elem = center_grid.find('RangeTime')
+                if range_time_elem is not None:
+                    range_time = float(range_time_elem.text)
+                    # Convert two-way travel time to one-way distance
+                    self._range_distances[idx] = (range_time * SPEED_OF_LIGHT) / 2
 
     def __getitem__(self, key: str) -> Union[np.ndarray, dict]:
         """Allow dictionary-like access to the network parameters"""

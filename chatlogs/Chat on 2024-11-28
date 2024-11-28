@@ -1,0 +1,100 @@
+> I am working on implementing the permanent scatterer interferometry in Python3. Having formed a network between the PS candidates, we are estimating the values of 'height_error' and 'velocity' along the network, as well as the vector of residuals and the temporal coherence, all for each edge of the network, The framework is implemented already, but the key funcion is missing and I hope you can help me implement it.
+
+The missing function is 'estimate_parameters_along_edge' and is used in the following way:
+
+<<<
+
+height_error, velocity, temporal_coherence, residuals = (
+                self.parameter_estimator.estimate_parameters_along_edge(
+                    edge_data['phase_differences']
+                )
+
+>>>
+
+where the parameter given is an ndarray of phase differences from the starting point of the edge to the ed point of the edge.
+
+The function is part of the class 'parameter_estimator', which holds important global varibles to be used:
+
+<<<
+    self.wavelength = wavelength 
+    self.temporal_baselines = temporal_baselines
+    self.perpendicular_baselines = perpendicular_baselines
+    self.range_distances = range_distances
+    self.incidence_angles = incidence_angles
+>>>
+
+where the wavelength is a single float and the others are ndarray of with the length of the number of interferograms.
+
+Now, please give me an implementation of the function using the periodogram approach. You can find information about this on the uploaded document, for example equation 6.10. Please implement it in Python3 and only show me the code, do not run it in the code interpreter.
+   
+
+Based on the PSI documentation provided, particularly equation 6.10 and the surrounding context, I'll help you implement the periodogram approach for parameter estimation. Here's the implementation of the `estimate_parameters_along_edge` function:
+
+```python
+def estimate_parameters_along_edge(self, phase_differences):
+    """
+    Estimates height error and velocity along network edges using periodogram approach.
+    
+    Args:
+        phase_differences (ndarray): Complex phase differences between two PS points
+        
+    Returns:
+        tuple: (height_error, velocity, temporal_coherence, residuals)
+    """
+    # Define search spaces for height error and velocity
+    height_search = np.linspace(-30, 30, 200)  # meters, adjust range as needed
+    velocity_search = np.linspace(-20, 20, 200)  # mm/year, adjust range as needed
+    
+    # Initialize coherence matrix
+    coherence_matrix = np.zeros((len(height_search), len(velocity_search)))
+    
+    # Calculate constants for phase conversion
+    height_to_phase = (4 * np.pi / self.wavelength) * (
+        self.perpendicular_baselines / (self.range_distances * np.sin(self.incidence_angles))
+    )
+    velocity_to_phase = (4 * np.pi / self.wavelength) * self.temporal_baselines
+    
+    # Compute periodogram
+    for i, h in enumerate(height_search):
+        for j, v in enumerate(velocity_search):
+            # Calculate model phases
+            phase_topo = h * height_to_phase
+            phase_motion = v * velocity_to_phase
+            model_phase = phase_topo + phase_motion
+            
+            # Calculate temporal coherence (equation 6.10)
+            temporal_coherence = np.abs(
+                np.mean(
+                    np.exp(1j * np.angle(phase_differences)) * 
+                    np.exp(-1j * model_phase)
+                )
+            )
+            
+            coherence_matrix[i, j] = temporal_coherence
+    
+    # Find maximum coherence
+    max_idx = np.unravel_index(np.argmax(coherence_matrix), coherence_matrix.shape)
+    best_height = height_search[max_idx[0]]
+    best_velocity = velocity_search[max_idx[1]]
+    max_coherence = coherence_matrix[max_idx]
+    
+    # Calculate residuals
+    best_phase_topo = best_height * height_to_phase
+    best_phase_motion = best_velocity * velocity_to_phase
+    model_phase = best_phase_topo + best_phase_motion
+    residuals = np.angle(
+        np.exp(1j * np.angle(phase_differences)) * 
+        np.exp(-1j * model_phase)
+    )
+    
+    return best_height, best_velocity, max_coherence, residuals
+```
+
+This implementation:
+1. Creates search spaces for height error and velocity
+2. Implements the periodogram approach as described in equation 6.10
+3. Converts height and velocity to phase using the appropriate geometric factors
+4. Finds the maximum temporal coherence and corresponding parameters
+5. Calculates residuals as the difference between observed and modeled phases
+
+The search ranges for height and velocity should be adjusted based on your specific application needs. The resolution of the search grid can also be adjusted by changing the number of points in `np.linspace()`.

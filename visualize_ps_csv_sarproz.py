@@ -65,7 +65,7 @@ def load_points_from_csv(csv_path):
     return results
 
 
-def plot_velocities_on_sar_geo(results, sar_image_path,
+def plot_velocities_on_sar_geo(results,
                                output_path=None,
                                cmap='RdYlBu_r',
                                marker_size=20,
@@ -94,10 +94,10 @@ def plot_velocities_on_sar_geo(results, sar_image_path,
     from matplotlib.colors import Normalize
 
     # Read SAR image
-    with rasterio.open(sar_image_path) as src:
-        sar_image = src.read(1)
-        transform = src.transform
-        crs = src.crs
+    # with rasterio.open(sar_image_path) as src:
+    #     sar_image = src.read(1)
+    #     transform = src.transform
+    #     crs = src.crs
 
     # Extract coordinates and velocities
     lats = []
@@ -117,22 +117,22 @@ def plot_velocities_on_sar_geo(results, sar_image_path,
     plt.figure(figsize=(12, 8))
 
     # Plot SAR background
-    sar_db = 10 * np.log10(np.abs(sar_image) ** 2)
-    sar_norm = Normalize(vmin=np.percentile(sar_db, 5),
-                         vmax=np.percentile(sar_db, 95))
+    # sar_db = 10 * np.log10(np.abs(sar_image) ** 2)
+    # sar_norm = Normalize(vmin=np.percentile(sar_db, 5),
+    #                      vmax=np.percentile(sar_db, 95))
 
-    # Plot using geographic extent
-    extent = [
-        transform.xoff,
-        transform.xoff + transform.a * sar_image.shape[1],
-        transform.yoff + transform.e * sar_image.shape[0],
-        transform.yoff
-    ]
+    # # Plot using geographic extent
+    # extent = [
+    #     transform.xoff,
+    #     transform.xoff + transform.a * sar_image.shape[1],
+    #     transform.yoff + transform.e * sar_image.shape[0],
+    #     transform.yoff
+    # ]
 
-    plt.imshow(sar_db,
-               cmap='gray',
-               norm=sar_norm,
-               extent=extent)
+    # plt.imshow(sar_db,
+    #            cmap='gray',
+    #            norm=sar_norm,
+    #            extent=extent)
 
     # Plot velocities
     scatter = plt.scatter(lons,
@@ -190,3 +190,11 @@ plot_velocities_on_sar_geo(
     dpi=300
 )
 """
+
+results = load_points_from_csv('/home/timo/Data/LasVegasDesc/deftrend.csv')
+plot_velocities_on_sar_geo(
+    results,
+    cmap='RdYlBu_r',
+    marker_size=20,
+    dpi=300
+)

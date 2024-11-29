@@ -2,6 +2,8 @@ import numpy as np
 import networkx as nx
 import h5py
 import pandas as pd
+from numpy import ndarray
+
 
 def load_reference_point(filename: str) -> str:
     """
@@ -25,7 +27,7 @@ def load_reference_point(filename: str) -> str:
     try:
         with open(filename, 'r') as f:
             reference_point = f.read().strip()
-        return reference_point
+        return int(reference_point) #Timo: debug because need an integer
     except FileNotFoundError:
         raise FileNotFoundError(f"Reference point file '{filename}' not found. "
                               "Please ensure the reference point has been saved first.")
@@ -64,6 +66,7 @@ def convert_network_parameters(params):
     temporal_coherence = []
     edge_heights = []
     edge_velocities = []
+    edge_residuals = []
 
     for edge_id in params['network_edges']:
         start_idx = ps_points_map[params['network_edges'][edge_id]['start_point']]
@@ -73,19 +76,22 @@ def convert_network_parameters(params):
         temporal_coherence.append(params['temporal_coherences'][edge_id])
         edge_heights.append(params['height_errors'][edge_id])
         edge_velocities.append(params['velocities'][edge_id])
+        edge_residuals.append(params['residuals'][edge_id])
 
-    # Initialize heights and velocities arrays for all points
-    num_points = len(ps_points_map)
-    heights = [0.0] * num_points
-    velocities = [0.0] * num_points
+    # # Initialize heights and velocities arrays for all points
+    # num_points = len(ps_points_map)
+    # heights = [0.0] * num_points
+    # velocities = [0.0] * num_points
+    # residuals = [ndarray] * num_points
+    #
+    # # Accumulate height and velocity differences along edges
+    # # Note: This is a simple accumulation - you might need to adjust based on your specific needs
+    # for i, (start_idx, end_idx) in enumerate(edges):
+    #     heights[end_idx] = heights[start_idx] + edge_heights[i]
+    #     velocities[end_idx] = velocities[start_idx] + edge_velocities[i]
+    #     residuals[end_idx] = edge_residuals[i]
 
-    # Accumulate height and velocity differences along edges
-    # Note: This is a simple accumulation - you might need to adjust based on your specific needs
-    for i, (start_idx, end_idx) in enumerate(edges):
-        heights[end_idx] = heights[start_idx] + edge_heights[i]
-        velocities[end_idx] = velocities[start_idx] + edge_velocities[i]
-
-    return edges, temporal_coherence, heights, velocities, ps_points_map
+    return edges, temporal_coherence, edge_heights, edge_velocities, edge_residuals, ps_points_map
 
 def load_network_parameters(filename):  # Added from previously generated code
     """
@@ -192,7 +198,7 @@ def find_optimal_paths_to_reference(G, reference_point):
     return paths, distances
 
 
-def extract_path_parameters(G, paths, heights, velocities):
+def extract_path_parameters(G, paths, heights, velocities, residuals):
     """
     Extract height and velocity differences along optimal paths
 
@@ -256,6 +262,7 @@ paths, distances = find_optimal_paths_to_reference(G, reference_point)
 path_parameters = extract_path_parameters(G, paths, heights, velocities)
 """
 
+print("Load data")
 params = load_network_parameters('/home/timo/Data/LasVegasDesc/ps_results3_perio.h5')
 df = pd.read_csv('/home/timo/Data/LasVegasDesc/aps_psc3.csv')
 # Rename the unnamed first column to 'point_id'
@@ -263,4 +270,14 @@ df = df.rename(columns={df.columns[0]: 'point_id'})
 # Extract coordinates
 ps_points = df[['sample', 'line']].values
 reference_point = load_reference_point('/home/timo/Data/LasVegasDesc/ref_point3.txt')
+
+edges, temporal_coherence, heights, velocities, residuals, ps_points_map = convert_network_parameters(params)
+
+print("Create Network")
+G = create_ps_network(ps_points, edges, temporal_coherence)
+print("Find optimal path")
+paths, distances = find_optimal_paths_to_reference(G, reference_point)
+print("Extract path parameters")
+path_parameters = extract_path_parameters(G, paths, heights, velocities, residuals)
+
 print('end')

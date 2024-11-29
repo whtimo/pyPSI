@@ -1378,3 +1378,62 @@ The main changes are:
 
 Now when you load the parameters, you can access the network edge information through `params['network_edges'][edge_id]['start_point']` and `params['network_edges'][edge_id]['end_point']`.
 
+> Thanks. When I get the result from the refernce poitn above
+<<<
+reference_point = select_reference_point(
+     params,
+     temporal_coherence_threshold=0.9,
+     min_connections=10,
+     known_stable_points=['PS001', 'PS002']  # Optional list of known stable
+ >>>
+
+ I want to save that point. It is jsut an id, so maybe just into a very simple text file? Please just show me the code and do not run it into the code interpreter
+
+Here are two simple ways to save the reference point ID to a text file:
+
+```python
+# Option 1: Simple one-line write
+def save_reference_point(reference_point: str, filename: str = 'reference_point.txt'):
+    """
+    Save reference point ID to a text file
+    
+    Parameters:
+    -----------
+    reference_point: str
+        ID of the reference point
+    filename: str
+        Path to save the text file
+    """
+    with open(filename, 'w') as f:
+        f.write(reference_point)
+
+# Option 2: JSON format (if you want to add metadata later)
+import json
+
+def save_reference_point_json(reference_point: str, filename: str = 'reference_point.json'):
+    """
+    Save reference point ID to a JSON file
+    
+    Parameters:
+    -----------
+    reference_point: str
+        ID of the reference point
+    filename: str
+        Path to save the JSON file
+    """
+    data = {
+        'reference_point': reference_point,
+        'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    }
+    with open(filename, 'w') as f:
+        json.dump(data, f, indent=4)
+
+# Usage:
+# Simple text file
+save_reference_point(reference_point, '/home/timo/Data/LasVegasDesc/reference_point.txt')
+
+# Or JSON format
+save_reference_point_json(reference_point, '/home/timo/Data/LasVegasDesc/reference_point.json')
+```
+
+The first option is the simplest solution if you just need to store the ID. The second option using JSON is more extensible if you might want to add more information later.

@@ -139,7 +139,7 @@ def load_network_parameters(filename):  # Added from previously generated code
     return params
 
 
-def create_ps_network(ps_points, edges, temporal_coherence, edge_ids):
+def create_ps_network(ps_points, edges, temporal_coherence):
     """
     Create a weighted network from PS points and edges
 
@@ -170,7 +170,7 @@ def create_ps_network(ps_points, edges, temporal_coherence, edge_ids):
     # Convert temporal coherence to weights (higher coherence = lower weight)
     weights = 1 - np.array(temporal_coherence)
 
-    for (point1, point2), weight, edge_id in zip(edges, weights, edge_ids):
+    for (point1, point2), weight, edge_id in zip(edges, weights, range(len(edges))):
         G.add_edge(point1, point2, weight=weight, edge_id=edge_id)
 
     return G

@@ -1,6 +1,52 @@
 import numpy as np
 import networkx as nx
+import h5py
+import pandas as pd
 
+def load_network_parameters(filename):  # Added from previously generated code
+    """
+    Load network parameters from HDF5 file
+
+    Parameters:
+    -----------
+    filename: str
+        Path to the HDF5 file
+
+    Returns:
+    --------
+    params: dict
+        Dictionary containing the network parameters
+    """
+    params = {
+        'height_errors': {},
+        'velocities': {},
+        'temporal_coherences': {},
+        'residuals': {},
+        'network_edges': {}
+    }
+
+    with h5py.File(filename, 'r') as f:
+        data_group = f['network_parameters']
+        network_group = f['network_edges']
+
+        edge_ids = [id.decode('utf-8') for id in data_group['edge_ids'][:]]
+        start_points = [p.decode('utf-8') for p in network_group['start_points'][:]]
+        end_points = [p.decode('utf-8') for p in network_group['end_points'][:]]
+
+        for i, edge_id in enumerate(edge_ids):
+            # Store parameter data
+            params['height_errors'][edge_id] = data_group['height_errors'][i]
+            params['velocities'][edge_id] = data_group['velocities'][i]
+            params['temporal_coherences'][edge_id] = data_group['temporal_coherences'][i]
+            params['residuals'][edge_id] = data_group['residuals'][i]
+
+            # Store network edge information
+            params['network_edges'][edge_id] = {
+                'start_point': start_points[i],
+                'end_point': end_points[i]
+            }
+
+    return params
 
 def create_ps_network(ps_points, edges, temporal_coherence):
     """
@@ -126,3 +172,11 @@ paths, distances = find_optimal_paths_to_reference(G, reference_point)
 path_parameters = extract_path_parameters(G, paths, heights, velocities)
 """
 
+params = load_network_parameters('/home/timo/Data/LasVegasDesc/ps_results3_perio.h5')
+df = pd.read_csv('/home/timo/Data/LasVegasDesc/aps_psc3.csv')
+# Rename the unnamed first column to 'point_id'
+df = df.rename(columns={df.columns[0]: 'point_id'})
+# Extract coordinates
+ps_points = df[['sample', 'line']].values
+reference_point = load_reference_point(reference_point, '/home/timo/Data/LasVegasDesc/ref_point3.txt')
+print('end')

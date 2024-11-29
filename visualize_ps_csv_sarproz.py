@@ -198,3 +198,16 @@ plot_velocities_on_sar(
     dpi=300
 )
 """
+results = load_and_combine_csv_data(
+    velocity_csv='/home/timo/Data/LasVegasDesc/deftrend2.csv',
+    samples_csv='/home/timo/Data/LasVegasDesc/sample.csv',
+    lines_csv='/home/timo/Data/LasVegasDesc/line.csv'
+)
+plot_velocities_on_sar(
+    results,
+    sar_image_path='/home/timo/Data/LasVegasDesc/resampled/TSX-1_0_2010-09-19.tiff',
+    output_path='/home/timo/Data/LasVegasDesc/sarproz_velocity_map.png',
+    cmap='RdYlBu_r',
+    marker_size=20,
+    dpi=300
+)

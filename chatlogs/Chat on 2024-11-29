@@ -154,3 +154,156 @@ To use this code, you would need to provide:
 - Reference point index
 
 The weights are calculated as `1 - temporal_coherence` so that higher coherence results in lower weights (preferred paths). You can modify this weighting scheme based on your specific requirements.
+
+> Trying to implement the code you created, there is a difference in the data formats. The code you created requires the following
+
+<<<
+edges = [(0,1), (1,2), ...]  # Edge connections
+temporal_coherence = [0.8, 0.7, ...]  # Temporal coherence for each edge
+heights = [100, 102, ...]  # Height values for each point
+velocities = [-2.1, -1.9, ...]  # Velocity values for each point
+>>>
+
+but, the 'load_network_parameters' parameters I use, gives the data in a different format. Below is the implementation:
+
+<<<
+def load_network_parameters(filename):  # Added from previously generated code
+    """
+    Load network parameters from HDF5 file
+
+    Parameters:
+    -----------
+    filename: str
+        Path to the HDF5 file
+
+    Returns:
+    --------
+    params: dict
+        Dictionary containing the network parameters
+    """
+    params = {
+        'height_errors': {},
+        'velocities': {},
+        'temporal_coherences': {},
+        'residuals': {},
+        'network_edges': {}
+    }
+
+    with h5py.File(filename, 'r') as f:
+        data_group = f['network_parameters']
+        network_group = f['network_edges']
+
+        edge_ids = [id.decode('utf-8') for id in data_group['edge_ids'][:]]
+        start_points = [p.decode('utf-8') for p in network_group['start_points'][:]]
+        end_points = [p.decode('utf-8') for p in network_group['end_points'][:]]
+
+        for i, edge_id in enumerate(edge_ids):
+            # Store parameter data
+            params['height_errors'][edge_id] = data_group['height_errors'][i]
+            params['velocities'][edge_id] = data_group['velocities'][i]
+            params['temporal_coherences'][edge_id] = data_group['temporal_coherences'][i]
+            params['residuals'][edge_id] = data_group['residuals'][i]
+
+            # Store network edge information
+            params['network_edges'][edge_id] = {
+                'start_point': start_points[i],
+                'end_point': end_points[i]
+            }
+
+    return params
+>>>
+
+To make that work, please either change the 'load_network_parameters' function or provide me with a function that brings the data into the right format. Please only show me the code and do not run it in the code interpreter.
+
+
+I'll provide you with a conversion function that transforms the data from your HDF5 format into the format required by the PS network analysis code. Here's the function:
+
+```python
+def convert_network_parameters(params):
+    """
+    Convert network parameters from HDF5 format to the format required for PS network analysis
+
+    Parameters:
+    -----------
+    params: dict
+        Dictionary containing the network parameters as loaded from HDF5 file
+        Contains 'height_errors', 'velocities', 'temporal_coherences', 'residuals', 'network_edges'
+
+    Returns:
+    --------
+    tuple:
+        (edges, temporal_coherence, heights, velocities, ps_points_map)
+        - edges: list of tuples [(point1_idx, point2_idx), ...]
+        - temporal_coherence: list of coherence values [float, ...]
+        - heights: list of height values [float, ...]
+        - velocities: list of velocity values [float, ...]
+        - ps_points_map: dict mapping PS point IDs to their indices
+    """
+    # Create a mapping of PS point IDs to indices
+    ps_points = set()
+    for edge_id in params['network_edges']:
+        ps_points.add(params['network_edges'][edge_id]['start_point'])
+        ps_points.add(params['network_edges'][edge_id]['end_point'])
+    
+    ps_points_map = {point_id: idx for idx, point_id in enumerate(sorted(ps_points))}
+    
+    # Convert edges to index-based format
+    edges = []
+    temporal_coherence = []
+    edge_heights = []
+    edge_velocities = []
+    
+    for edge_id in params['network_edges']:
+        start_idx = ps_points_map[params['network_edges'][edge_id]['start_point']]
+        end_idx = ps_points_map[params['network_edges'][edge_id]['end_point']]
+        
+        edges.append((start_idx, end_idx))
+        temporal_coherence.append(params['temporal_coherences'][edge_id])
+        edge_heights.append(params['height_errors'][edge_id])
+        edge_velocities.append(params['velocities'][edge_id])
+    
+    # Initialize heights and velocities arrays for all points
+    num_points = len(ps_points_map)
+    heights = [0.0] * num_points
+    velocities = [0.0] * num_points
+    
+    # Accumulate height and velocity differences along edges
+    # Note: This is a simple accumulation - you might need to adjust based on your specific needs
+    for i, (start_idx, end_idx) in enumerate(edges):
+        heights[end_idx] = heights[start_idx] + edge_heights[i]
+        velocities[end_idx] = velocities[start_idx] + edge_velocities[i]
+    
+    return edges, temporal_coherence, heights, velocities, ps_points_map
+
+# Example usage:
+"""
+# Load the network parameters
+params = load_network_parameters('network_params.h5')
+
+# Convert to required format
+edges, temporal_coherence, heights, velocities, ps_points_map = convert_network_parameters(params)
+
+# Now you can use these with the PS network analysis code
+G = create_ps_network(ps_points, edges, temporal_coherence)
+paths, distances = find_optimal_paths_to_reference(G, reference_point)
+path_parameters = extract_path_parameters(G, paths, heights, velocities)
+"""
+```
+
+This conversion function:
+
+1. Creates a mapping between PS point IDs (strings) and numerical indices
+2. Converts the edge connections to use these numerical indices
+3. Extracts temporal coherence values in the required list format
+4. Converts height and velocity differences to absolute values for each point
+5. Returns all data in the format required by the PS network analysis code
+
+Key features:
+- Maintains a mapping between original PS point IDs and indices
+- Handles the conversion of edge-based measurements to point-based values
+- Preserves all necessary information for the network analysis
+- Returns both the converted data and the mapping to reference original point IDs
+
+Note that the height and velocity calculations in this implementation are simplified. Depending on your specific requirements, you might need to adjust how these values are accumulated or calculated for each point.
+
+The ps_points_map returned by the function allows you to translate between the original PS point IDs and the numerical indices used in the network analysis.

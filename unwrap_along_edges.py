@@ -138,7 +138,8 @@ def load_network_parameters(filename):  # Added from previously generated code
 
     return params
 
-def create_ps_network(ps_points, edges, temporal_coherence):
+
+def create_ps_network(ps_points, edges, temporal_coherence, edge_ids):
     """
     Create a weighted network from PS points and edges
 
@@ -150,6 +151,8 @@ def create_ps_network(ps_points, edges, temporal_coherence):
         Array of edge connections [(point1_idx, point2_idx), ...]
     temporal_coherence : array-like
         Temporal coherence values for each edge
+    edge_ids : array-like
+        IDs for each edge
 
     Returns:
     --------
@@ -167,8 +170,8 @@ def create_ps_network(ps_points, edges, temporal_coherence):
     # Convert temporal coherence to weights (higher coherence = lower weight)
     weights = 1 - np.array(temporal_coherence)
 
-    for (point1, point2), weight in zip(edges, weights):
-        G.add_edge(point1, point2, weight=weight)
+    for (point1, point2), weight, edge_id in zip(edges, weights, edge_ids):
+        G.add_edge(point1, point2, weight=weight, edge_id=edge_id)
 
     return G
 
@@ -233,21 +236,13 @@ def extract_path_parameters(G, paths, heights, velocities, residuals):
                 current = path[i]
                 next_point = path[i + 1]
 
-                # Get edge ID in both possible directions
-                edge_forward = f"{current}_{next_point}"
-                edge_backward = f"{next_point}_{current}"
+                # Get edge data from the graph
+                edge_data = G.get_edge_data(current, next_point)
+                edge_id = edge_data['edge_id']  # Assuming edge_id is stored in edge attributes
 
-                # Determine if we need to flip the sign based on edge direction
-                if edge_forward in heights:
-                    edge_id = edge_forward
-                    sign = 1
-                else:
-                    edge_id = edge_backward
-                    sign = -1
-
-                height_diff += sign * heights[edge_id]
-                velocity_diff += sign * velocities[edge_id]
-                residual_diff += sign * residuals[edge_id]  # Residuals are always positive - Changed by Timo: No they are not
+                height_diff += heights[edge_id]
+                velocity_diff += velocities[edge_id]
+                residual_diff += residuals[edge_id]
 
             path_parameters[point] = {
                 'height_difference': height_diff,

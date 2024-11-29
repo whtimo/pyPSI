@@ -170,6 +170,7 @@ def create_ps_network(ps_points, edges, temporal_coherence):
     # Convert temporal coherence to weights (higher coherence = lower weight)
     #weights = 1 - np.array(temporal_coherence)
     weights = (1 - np.array(temporal_coherence)) * (1 - np.array(temporal_coherence)) #Timo: Squared seems to be better. Show both versions in paper
+    #weights = [None if a_ > (1-0.5)*(1-0.5) else a_ for a_ in weights] # Possible to remove some edges based on a threshold
 
     for (point1, point2), weight, edge_id in zip(edges, weights, range(len(edges))):
         G.add_edge(point1, point2, weight=weight, edge_id=edge_id, p1=point1, p2=point2)
@@ -366,6 +367,6 @@ paths, distances = find_optimal_paths_to_reference(G, reference_point)
 print("Extract path parameters")
 path_parameters = extract_path_parameters(G, paths, heights, velocities, residuals)
 print('Save results')
-save_path_parameters(path_parameters, df, reference_point, '/home/timo/Data/LasVegasDesc/ps_results3_psc_results.h5')
+save_path_parameters(path_parameters, df, reference_point, '/home/timo/Data/LasVegasDesc/ps_results3_psc_filt_results.h5')
 
 

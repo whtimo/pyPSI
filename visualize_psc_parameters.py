@@ -123,9 +123,9 @@ def plot_velocities_on_sar(results, sar_image_path,
     ref_point = results['points'][results['reference_point_id']]
     plt.scatter(ref_point['sample'],
                 ref_point['line'],
-                c='yellow',
+                c='green', #Timo: for better visibility
                 marker='*',
-                s=marker_size * 2,
+                s=marker_size * 20,
                 label='Reference Point')
 
     # Add colorbar
@@ -167,3 +167,10 @@ plot_velocities_on_sar(
     dpi=300
 )
 """
+
+results = load_path_parameters('/home/timo/Data/LasVegasDesc/ps_results3_psc_filt_results.h5')
+plot_velocities_on_sar(
+    results,
+    sar_image_path='/home/timo/Data/LasVegasDesc/resampled/TSX-1_0_2010-09-19.tiff',
+    output_path='/home/timo/Data/LasVegasDesc/psc_parameters_vel_filt.png',
+    marker_size=10, dpi=600)

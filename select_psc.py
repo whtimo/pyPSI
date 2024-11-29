@@ -52,8 +52,8 @@ def process_amplitude_dispersion(
 
         # Create DataFrame with results
         results_df = pd.DataFrame({
-            'sample': xs,
-            'line': ys,
+            'sample': np.array(xs, dtype=int), # xs,  # Timo changed as the integer coordinate gives the correct reading and avoid interpolation
+            'line': np.array(ys, dtype=int), #ys,
             'amplitude_dispersion': amplitude_data[rows, cols]
         })
 
@@ -72,10 +72,10 @@ if __name__ == "__main__":
     # window_y = 5  # Example window size in y direction
 
     input_path = "/home/timo/Data/LasVegasDesc/amplitude_dispersion.tif"
-    output_path = "/home/timo/Data/LasVegasDesc/aps_psc2.csv"
-    threshold = 0.075
-    window_x = 20
-    window_y = 20
+    output_path = "/home/timo/Data/LasVegasDesc/aps_psc3.csv"
+    threshold = 0.1
+    window_x = 30
+    window_y = 30
 
     results = process_amplitude_dispersion(
         input_path,

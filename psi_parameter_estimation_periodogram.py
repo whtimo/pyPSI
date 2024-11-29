@@ -99,8 +99,8 @@ class PSIParameterEstimator:
             tuple: (height_error, velocity, temporal_coherence, residuals)
         """
         # Define search spaces for height error and velocity
-        height_search = np.linspace(-30, 30, 200)  # meters, adjust range as needed
-        velocity_search = np.linspace(-20, 20, 200)  # mm/year, adjust range as needed
+        height_search = np.linspace(-100, 100, 200)  # meters, adjust range as needed
+        velocity_search = np.linspace(-100, 100, 200)  # mm/year, adjust range as needed
 
         # Initialize coherence matrix
         coherence_matrix = np.zeros((len(height_search), len(velocity_search)))
@@ -115,18 +115,28 @@ class PSIParameterEstimator:
         for i, h in enumerate(height_search):
             for j, v in enumerate(velocity_search):
                 # Calculate model phases
-                phase_topo = h * height_to_phase
-                phase_motion = v * velocity_to_phase
-                model_phase = phase_topo + phase_motion
+                #phase_topo = h * height_to_phase
+                #phase_motion = v * velocity_to_phase
+                #model_phase = phase_topo + phase_motion
+                phase_topo = np.angle(np.exp(1j * h * height_to_phase))
+                phase_motion = np.angle(np.exp(1j * v * velocity_to_phase))
+                model_phase = np.angle(np.exp(1j * (phase_topo + phase_motion)))
 
                 # Calculate temporal coherence (equation 6.10)
+                # temporal_coherence = np.abs(
+                #     np.mean(
+                #         np.exp(1j * np.angle(phase_differences)) *
+                #         np.exp(-1j * model_phase)
+                #     )
+                # )
+
+                #Timo: The np.angle of the phase difference seems to be a mistake as these are already given in radians
                 temporal_coherence = np.abs(
                     np.mean(
-                        np.exp(1j * np.angle(phase_differences)) *
+                        np.exp(1j * phase_differences) *
                         np.exp(-1j * model_phase)
                     )
                 )
-
                 coherence_matrix[i, j] = temporal_coherence
 
         # Find maximum coherence
@@ -139,8 +149,13 @@ class PSIParameterEstimator:
         best_phase_topo = best_height * height_to_phase
         best_phase_motion = best_velocity * velocity_to_phase
         model_phase = best_phase_topo + best_phase_motion
+        # residuals = np.angle(
+        #     np.exp(1j * np.angle(phase_differences)) *
+        #     np.exp(-1j * model_phase)
+        # )
+        # Timo: The np.angle of the phase difference seems to be a mistake as these are already given in radians
         residuals = np.angle(
-            np.exp(1j * np.angle(phase_differences)) *
+            np.exp(1j * phase_differences) *
             np.exp(-1j * model_phase)
         )
 
@@ -184,12 +199,14 @@ class NetworkParameterEstimator:
 
         edges = self.network['edges'].items()
         for edge_id, edge_data in edges:
-            print(f'{edge_id} / {len(edges)}')
+
             height_error, velocity, temporal_coherence, residuals = (
                 self.parameter_estimator.estimate_parameters_along_edge(
                     edge_data['phase_differences']
                 )
             )
+
+            print(f'{edge_id} / {len(edges)} - {height_error},{velocity},{temporal_coherence}')
 
             network_parameters['height_errors'][edge_id] = height_error
             network_parameters['velocities'][edge_id] = velocity
@@ -338,7 +355,7 @@ class PSNetwork:
 
 # Read the CSV file
 #df = pd.read_csv('your_file.csv')
-df = pd.read_csv('/home/timo/Data/LasVegasDesc/aps_psc_phases2.csv')
+df = pd.read_csv('/home/timo/Data/LasVegasDesc/aps_psc_phases3.csv')
 
 # Get the column names that are dates (skip the first 3 columns)
 date_columns = df.columns[3:]
@@ -348,13 +365,13 @@ dates = [datetime.strptime(date, '%Y-%m-%d') for date in date_columns]
 
 print("Reading the network") # Adding some comments because it is a long process
 #ps_network = PSNetwork(dates, "/path/to/xml/files")
-ps_network = PSNetwork(dates, "/home/timo/Data/LasVegasDesc/topo", "/home/timo/Data/LasVegasDesc/triangulation_results2.csv", "/home/timo/Data/LasVegasDesc/aps_psc_phases2.csv")
+ps_network = PSNetwork(dates, "/home/timo/Data/LasVegasDesc/topo", "/home/timo/Data/LasVegasDesc/triangulation_results3.csv", "/home/timo/Data/LasVegasDesc/aps_psc_phases3.csv")
 
 parameter_estimator = NetworkParameterEstimator(ps_network)
 print("Start parameter estimation") # Adding some comments because it is a long process
 params = parameter_estimator.estimate_network_parameters()
 print("Save parameters") # Adding some comments because it is a long process
-save_network_parameters(params, ps_network, '/home/timo/Data/LasVegasDesc/ps_results2.h5')
+save_network_parameters(params, ps_network, '/home/timo/Data/LasVegasDesc/ps_results3_perio.h5')
 
 
 

@@ -208,15 +208,17 @@ def extract_path_parameters(G, paths, heights, velocities, residuals):
         Weighted graph representing the PS network
     paths : dict
         Dictionary containing optimal paths from each point to reference
-    heights : array-like
-        Height values for each PS point
-    velocities : array-like
-        Velocity values for each PS point
+    heights : dict
+        Height values for each edge (edge_id: height_value)
+    velocities : dict
+        Velocity values for each edge (edge_id: velocity_value)
+    residuals : dict
+        Residual values for each edge (edge_id: residual_value)
 
     Returns:
     --------
     path_parameters : dict
-        Dictionary containing accumulated height and velocity differences
+        Dictionary containing accumulated height, velocity, and residual differences
     """
     path_parameters = {}
 
@@ -224,18 +226,33 @@ def extract_path_parameters(G, paths, heights, velocities, residuals):
         if len(path) > 1:  # Skip reference point
             height_diff = 0
             velocity_diff = 0
+            residual_diff = 0
 
             # Calculate cumulative differences along the path
             for i in range(len(path) - 1):
                 current = path[i]
                 next_point = path[i + 1]
 
-                height_diff += heights[next_point] - heights[current]
-                velocity_diff += velocities[next_point] - velocities[current]
+                # Get edge ID in both possible directions
+                edge_forward = f"{current}_{next_point}"
+                edge_backward = f"{next_point}_{current}"
+
+                # Determine if we need to flip the sign based on edge direction
+                if edge_forward in heights:
+                    edge_id = edge_forward
+                    sign = 1
+                else:
+                    edge_id = edge_backward
+                    sign = -1
+
+                height_diff += sign * heights[edge_id]
+                velocity_diff += sign * velocities[edge_id]
+                residual_diff += sign * residuals[edge_id]  # Residuals are always positive - Changed by Timo: No they are not
 
             path_parameters[point] = {
                 'height_difference': height_diff,
                 'velocity_difference': velocity_diff,
+                'residual_difference': residual_diff,
                 'path': path
             }
 

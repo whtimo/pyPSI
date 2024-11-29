@@ -3,7 +3,7 @@ import networkx as nx
 import h5py
 import pandas as pd
 from numpy import ndarray
-
+import datetime
 
 def load_reference_point(filename: str) -> str:
     """
@@ -253,6 +253,74 @@ def extract_path_parameters(G, paths, heights, velocities, residuals):
 
     return path_parameters
 
+def save_path_parameters(path_parameters, df, reference_point_id, filename='path_parameters.h5'):
+    """
+    Save path parameters and point coordinates to HDF5 file
+
+    Parameters:
+    -----------
+    path_parameters: dict
+        Dictionary containing path parameters for each point
+    df: pandas.DataFrame
+        DataFrame containing point coordinates with columns ['point_id', 'sample', 'line']
+    reference_point_id: str
+        ID of the reference point
+    filename: str
+        Path to save the HDF5 file
+    """
+    import h5py
+    import numpy as np
+
+    # Create coordinate lookup dictionary
+    coord_lookup = {row['point_id']: (row['sample'], row['line'])
+                   for _, row in df[['point_id', 'sample', 'line']].iterrows()}
+
+    # Prepare data arrays
+    point_ids = list(path_parameters.keys()) + [reference_point_id]
+    n_points = len(point_ids)
+
+    # Initialize arrays
+    samples = np.zeros(n_points, dtype=np.float32)
+    lines = np.zeros(n_points, dtype=np.float32)
+    heights = np.zeros(n_points, dtype=np.float32)
+    velocities = np.zeros(n_points, dtype=np.float32)
+    residuals = np.zeros(n_points, dtype=np.float32)
+
+    # Fill arrays with path parameters data
+    for i, point_id in enumerate(point_ids[:-1]):  # Exclude reference point
+        samples[i], lines[i] = coord_lookup[point_id]
+        heights[i] = path_parameters[point_id]['height_difference']
+        velocities[i] = path_parameters[point_id]['velocity_difference']
+        residuals[i] = path_parameters[point_id]['residual_difference']
+
+    # Add reference point (last index)
+    ref_idx = n_points - 1
+    samples[ref_idx], lines[ref_idx] = coord_lookup[reference_point_id]
+    # Reference point parameters are already zero from initialization
+
+    # Save to HDF5 file
+    with h5py.File(filename, 'w') as f:
+        # Create main group
+        results = f.create_group('path_parameters')
+
+        # Store point IDs as ASCII strings
+        #dt = h5py.special_dtype(vlen=str) #Timo: don't want strings, but int
+        point_ids_dataset = results.create_dataset('point_ids', (n_points,), dtype=int)
+        point_ids_dataset[:] = point_ids
+
+        # Store coordinates and parameters
+        results.create_dataset('sample', data=samples)
+        results.create_dataset('line', data=lines)
+        results.create_dataset('height_difference', data=heights)
+        results.create_dataset('velocity_difference', data=velocities)
+        results.create_dataset('residual_difference', data=residuals)
+
+        # Store reference point ID as attribute
+        results.attrs['reference_point_id'] = reference_point_id
+
+        # Store metadata
+        results.attrs['creation_date'] = str(datetime.datetime.now())
+        results.attrs['number_of_points'] = n_points
 
 # Example usage:
 """

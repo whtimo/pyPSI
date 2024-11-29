@@ -54,12 +54,12 @@ def convert_network_parameters(params):
         - ps_points_map: dict mapping PS point IDs to their indices
     """
     # Create a mapping of PS point IDs to indices
-    ps_points = set()
-    for edge_id in params['network_edges']:
-        ps_points.add(params['network_edges'][edge_id]['start_point'])
-        ps_points.add(params['network_edges'][edge_id]['end_point'])
-
-    ps_points_map = {point_id: idx for idx, point_id in enumerate(sorted(ps_points))}
+    # ps_points = set()
+    # for edge_id in params['network_edges']:
+    #     ps_points.add(params['network_edges'][edge_id]['start_point'])
+    #     ps_points.add(params['network_edges'][edge_id]['end_point'])
+    #
+    # ps_points_map = {point_id: idx for idx, point_id in enumerate(sorted(ps_points))}
 
     # Convert edges to index-based format
     edges = []
@@ -69,8 +69,8 @@ def convert_network_parameters(params):
     edge_residuals = []
 
     for edge_id in params['network_edges']:
-        start_idx = ps_points_map[params['network_edges'][edge_id]['start_point']]
-        end_idx = ps_points_map[params['network_edges'][edge_id]['end_point']]
+        start_idx = int(params['network_edges'][edge_id]['start_point'])
+        end_idx = int(params['network_edges'][edge_id]['end_point'])
 
         edges.append((start_idx, end_idx))
         temporal_coherence.append(params['temporal_coherences'][edge_id])
@@ -91,7 +91,7 @@ def convert_network_parameters(params):
     #     velocities[end_idx] = velocities[start_idx] + edge_velocities[i]
     #     residuals[end_idx] = edge_residuals[i]
 
-    return edges, temporal_coherence, edge_heights, edge_velocities, edge_residuals, ps_points_map
+    return edges, temporal_coherence, edge_heights, edge_velocities, edge_residuals
 
 def load_network_parameters(filename):  # Added from previously generated code
     """
@@ -168,10 +168,11 @@ def create_ps_network(ps_points, edges, temporal_coherence):
 
     # Add edges with weights based on temporal coherence
     # Convert temporal coherence to weights (higher coherence = lower weight)
-    weights = 1 - np.array(temporal_coherence)
+    #weights = 1 - np.array(temporal_coherence)
+    weights = (1 - np.array(temporal_coherence)) * (1 - np.array(temporal_coherence)) #Timo: Squared seems to be better. Show both versions in paper
 
     for (point1, point2), weight, edge_id in zip(edges, weights, range(len(edges))):
-        G.add_edge(point1, point2, weight=weight, edge_id=edge_id)
+        G.add_edge(point1, point2, weight=weight, edge_id=edge_id, p1=point1, p2=point2)
 
     return G
 
@@ -239,10 +240,17 @@ def extract_path_parameters(G, paths, heights, velocities, residuals):
                 # Get edge data from the graph
                 edge_data = G.get_edge_data(current, next_point)
                 edge_id = edge_data['edge_id']  # Assuming edge_id is stored in edge attributes
+                p1 = edge_data['p1'] #Timo: Added direction in travelling the path
+                p2 = edge_data['p2']
 
-                height_diff += heights[edge_id]
-                velocity_diff += velocities[edge_id]
-                residual_diff += residuals[edge_id]
+                if current == p1:
+                    height_diff += heights[edge_id]
+                    velocity_diff += velocities[edge_id]
+                    residual_diff += residuals[edge_id]
+                elif current == p2:
+                    height_diff -= heights[edge_id]
+                    velocity_diff -= velocities[edge_id]
+                    residual_diff -= residuals[edge_id]
 
             path_parameters[point] = {
                 'height_difference': height_diff,
@@ -253,7 +261,7 @@ def extract_path_parameters(G, paths, heights, velocities, residuals):
 
     return path_parameters
 
-def save_path_parameters(path_parameters, df, reference_point_id, filename='path_parameters.h5'):
+def save_path_parameters(path_parameters, df, reference_point_id, filename):
     """
     Save path parameters and point coordinates to HDF5 file
 
@@ -268,8 +276,6 @@ def save_path_parameters(path_parameters, df, reference_point_id, filename='path
     filename: str
         Path to save the HDF5 file
     """
-    import h5py
-    import numpy as np
 
     # Create coordinate lookup dictionary
     coord_lookup = {row['point_id']: (row['sample'], row['line'])
@@ -280,24 +286,24 @@ def save_path_parameters(path_parameters, df, reference_point_id, filename='path
     n_points = len(point_ids)
 
     # Initialize arrays
-    samples = np.zeros(n_points, dtype=np.float32)
-    lines = np.zeros(n_points, dtype=np.float32)
+    samples = np.zeros(n_points, dtype=np.int32)
+    lines = np.zeros(n_points, dtype=np.int32)
     heights = np.zeros(n_points, dtype=np.float32)
     velocities = np.zeros(n_points, dtype=np.float32)
-    residuals = np.zeros(n_points, dtype=np.float32)
+    residuals = []
 
     # Fill arrays with path parameters data
     for i, point_id in enumerate(point_ids[:-1]):  # Exclude reference point
         samples[i], lines[i] = coord_lookup[point_id]
         heights[i] = path_parameters[point_id]['height_difference']
         velocities[i] = path_parameters[point_id]['velocity_difference']
-        residuals[i] = path_parameters[point_id]['residual_difference']
+        residuals.append(path_parameters[point_id]['residual_difference'])
 
     # Add reference point (last index)
     ref_idx = n_points - 1
     samples[ref_idx], lines[ref_idx] = coord_lookup[reference_point_id]
     # Reference point parameters are already zero from initialization
-
+    residuals.append(np.zeros(len(residuals[0])))
     # Save to HDF5 file
     with h5py.File(filename, 'w') as f:
         # Create main group
@@ -351,7 +357,7 @@ df = df.rename(columns={df.columns[0]: 'point_id'})
 ps_points = df[['sample', 'line']].values
 reference_point = load_reference_point('/home/timo/Data/LasVegasDesc/ref_point3.txt')
 
-edges, temporal_coherence, heights, velocities, residuals, ps_points_map = convert_network_parameters(params)
+edges, temporal_coherence, heights, velocities, residuals = convert_network_parameters(params)
 
 print("Create Network")
 G = create_ps_network(ps_points, edges, temporal_coherence)
@@ -359,5 +365,7 @@ print("Find optimal path")
 paths, distances = find_optimal_paths_to_reference(G, reference_point)
 print("Extract path parameters")
 path_parameters = extract_path_parameters(G, paths, heights, velocities, residuals)
+print('Save results')
+save_path_parameters(path_parameters, df, reference_point, '/home/timo/Data/LasVegasDesc/ps_results3_psc_results.h5')
 
-print('end')
+

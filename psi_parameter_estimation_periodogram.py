@@ -83,7 +83,7 @@ class PSIParameterEstimator:
             Local incidence angles in radians
         """
         self.wavelength = wavelength
-        self.temporal_baselines = temporal_baselines
+        self.temporal_baselines_years = temporal_baselines / 365.0 #Timo: temporal baselines need to be given in years
         self.perpendicular_baselines = perpendicular_baselines
         self.range_distances = range_distances
         self.incidence_angles = incidence_angles
@@ -109,7 +109,7 @@ class PSIParameterEstimator:
         height_to_phase = (4 * np.pi / self.wavelength) * (
                 self.perpendicular_baselines / (self.range_distances * np.sin(self.incidence_angles))
         )
-        velocity_to_phase = (4 * np.pi / self.wavelength) * self.temporal_baselines
+        velocity_to_phase = (4 * np.pi / self.wavelength) * self.temporal_baselines_years
 
         # Compute periodogram
         for i, h in enumerate(height_search):
@@ -119,7 +119,7 @@ class PSIParameterEstimator:
                 #phase_motion = v * velocity_to_phase
                 #model_phase = phase_topo + phase_motion
                 phase_topo = np.angle(np.exp(1j * h * height_to_phase))
-                phase_motion = np.angle(np.exp(1j * v * velocity_to_phase))
+                phase_motion = np.angle(np.exp(1j * (v / 1000.0) * velocity_to_phase)) #Timo: velocity is given in mm
                 model_phase = np.angle(np.exp(1j * (phase_topo + phase_motion)))
 
                 # Calculate temporal coherence (equation 6.10)
@@ -371,7 +371,7 @@ parameter_estimator = NetworkParameterEstimator(ps_network)
 print("Start parameter estimation") # Adding some comments because it is a long process
 params = parameter_estimator.estimate_network_parameters()
 print("Save parameters") # Adding some comments because it is a long process
-save_network_parameters(params, ps_network, '/home/timo/Data/LasVegasDesc/ps_results3_perio.h5')
+save_network_parameters(params, ps_network, '/home/timo/Data/LasVegasDesc/ps_results3_perio_year.h5')
 
 
 

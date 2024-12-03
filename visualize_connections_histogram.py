@@ -84,6 +84,6 @@ def plot_temporal_coherence_histogram(params):
 
 
 # Load and plot
-filename = '/home/timo/Data/LasVegasDesc/ps_results3_perio.h5'
+filename = '/home/timo/Data/LasVegasDesc/ps_results3_perio_year.h5'
 params = load_network_parameters(filename)
 plot_temporal_coherence_histogram(params)

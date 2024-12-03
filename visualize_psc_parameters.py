@@ -117,7 +117,8 @@ def plot_velocities_on_sar(results, sar_image_path,
                           c=velocities,
                           cmap=cmap,
                           s=marker_size,
-                          alpha=0.7)
+                          alpha=0.7,
+                          vmin=-30, vmax=30)
 
     # Highlight reference point
     ref_point = results['points'][results['reference_point_id']]
@@ -168,9 +169,9 @@ plot_velocities_on_sar(
 )
 """
 
-results = load_path_parameters('/home/timo/Data/LasVegasDesc/ps_results3_psc_filt_results.h5')
+results = load_path_parameters('/home/timo/Data/LasVegasDesc/ps_results3_psc_filt_year_results.h5')
 plot_velocities_on_sar(
     results,
     sar_image_path='/home/timo/Data/LasVegasDesc/resampled/TSX-1_0_2010-09-19.tiff',
-    output_path='/home/timo/Data/LasVegasDesc/psc_parameters_vel_filt.png',
+    output_path='/home/timo/Data/LasVegasDesc/psc_parameters_vel_filt_year.png',
     marker_size=10, dpi=600)

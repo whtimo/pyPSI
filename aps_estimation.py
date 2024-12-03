@@ -210,8 +210,8 @@ def main():
     logger = setup_logging()
 
     # Set paths
-    input_file = Path('path_parameters.h5')
-    output_dir = Path('interpolated_residuals')
+    input_file = Path('/home/timo/Data/LasVegasDesc/ps_results3_psc_filt_year_results.h5')
+    output_dir = Path('/home/timo/Data/LasVegasDesc/aps')
     output_dir.mkdir(exist_ok=True)
 
     # Load data
@@ -223,7 +223,7 @@ def main():
 
     # Create output grid
     logger.info("Creating output grid")
-    grid_x, grid_y, transform = create_output_grid(samples, lines)
+    grid_x, grid_y, transform = create_output_grid(samples, lines, pixel_size=10) #Timo: Added larger pixel size multi-looking to avoid memory errors
 
     # Process each epoch
     n_epochs = residuals.shape[1]
@@ -237,8 +237,8 @@ def main():
 
         # Interpolate
         interpolated = interpolate_residuals(
-            samples, lines, epoch_residuals, grid_x, grid_y
-        )
+            samples / 10, lines / 10, epoch_residuals, grid_x, grid_y
+        ) #Timo: Added division of the samples and lines coordinates by the grid multi-looking
 
         # Save result
         save_interpolated_grid(

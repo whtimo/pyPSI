@@ -1,12 +1,10 @@
 import numpy as np
-from scipy.optimize import least_squares
 from typing import Tuple, List, Dict, Union
 import pandas as pd
 from datetime import datetime
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-from psi_parameter_estimation import save_network_parameters
 
 
 def save_point_data_to_csv(input_csv, output_csv, params):
@@ -54,7 +52,7 @@ def find_matching_point_index(reference_point_file, first_csv, second_csv):
         point_id = int(f.read().strip())
 
     # Read both CSV files using pandas
-    import pandas as pd
+
     df1 = pd.read_csv(first_csv)
     df2 = pd.read_csv(second_csv)
 
@@ -194,12 +192,10 @@ class ParameterEstimator:
             'temporal_coherences': {}
         }
         ref_phases = self.points.iloc[ref_point][3:].to_numpy()
-        ref_phases_cpl = np.exp(1j * ref_phases)
         for point_id in range(len(self.points)):
             if point_id != ref_point:
                 phases = self.points.iloc[point_id][3:].to_numpy()
-                cpl_ph = ref_phases_cpl * np.conjugate(np.exp(1j * phases))
-                phase_differences = np.angle(cpl_ph)
+                phase_differences = np.angle(np.exp(1j * (ref_phases - phases)))
                 height_error, velocity, temporal_coherence = (
                          self.parameter_estimator.estimate_parameters(
                             phase_differences
@@ -317,7 +313,7 @@ date_columns = df_ps.columns[3:]
 # Convert the date strings to datetime objects and store in a list
 dates = [datetime.strptime(date, '%Y-%m-%d') for date in date_columns]
 
-ref_point = find_matching_point_index('/home/timo/Data/LasVegasDesc/ref_point2.csv', '/home/timo/Data/LasVegasDesc/aps_psc3.csv', '/home/timo/Data/LasVegasDesc/ps_phases.csv')
+ref_point = find_matching_point_index('/home/timo/Data/LasVegasDesc/ref_point3.txt', '/home/timo/Data/LasVegasDesc/aps_psc3.csv', '/home/timo/Data/LasVegasDesc/ps_phases.csv')
 #print("Reading the network") # Adding some comments because it is a long process
 #ps_network = PSNetwork(dates, "/path/to/xml/files")
 ps_info = PSInfo(dates, "/home/timo/Data/LasVegasDesc/topo", "/home/timo/Data/LasVegasDesc/ps_phases.csv")

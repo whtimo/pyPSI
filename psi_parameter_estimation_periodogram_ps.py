@@ -1,0 +1,270 @@
+import numpy as np
+from scipy.optimize import least_squares
+from typing import Tuple, List, Dict, Union
+import pandas as pd
+from datetime import datetime
+import xml.etree.ElementTree as ET
+from pathlib import Path
+import h5py
+from sympy import conjugate
+
+
+class PSIParameterEstimator:
+    def __init__(self,
+                 wavelength: float,
+                 temporal_baselines: np.ndarray,
+                 perpendicular_baselines: np.ndarray,
+                 range_distances: np.ndarray,
+                 incidence_angles: np.ndarray):
+        """
+        Initialize PSI parameter estimator
+
+        Parameters:
+        -----------
+        wavelength: float
+            Radar wavelength in meters
+        temporal_baselines: np.ndarray
+            Time differences between master and slave images in days
+        perpendicular_baselines: np.ndarray
+            Perpendicular baselines in meters
+        range_distances: np.ndarray
+            Slant range distances in meters
+        incidence_angles: np.ndarray
+            Local incidence angles in radians
+        """
+        self.wavelength = wavelength
+        self.temporal_baselines_years = temporal_baselines / 365.0 #Timo: temporal baselines need to be given in years
+        self.perpendicular_baselines = perpendicular_baselines
+        self.range_distances = range_distances
+        self.incidence_angles = incidence_angles
+
+    def estimate_parameters(self, phase_differences):
+        """
+        Estimates height error and velocity along network edges using periodogram approach.
+
+        Args:
+            phase_differences (ndarray): Complex phase differences between two PS points
+
+        Returns:
+            tuple: (height_error, velocity, temporal_coherence, residuals)
+        """
+        # Define search spaces for height error and velocity
+        height_search = np.linspace(-100, 100, 200)  # meters, adjust range as needed
+        velocity_search = np.linspace(-100, 100, 200)  # mm/year, adjust range as needed
+
+        # Initialize coherence matrix
+        coherence_matrix = np.zeros((len(height_search), len(velocity_search)))
+
+        # Calculate constants for phase conversion
+        height_to_phase = (4 * np.pi / self.wavelength) * (
+                self.perpendicular_baselines / (self.range_distances * np.sin(self.incidence_angles))
+        )
+        velocity_to_phase = (4 * np.pi / self.wavelength) * self.temporal_baselines_years
+
+        # Compute periodogram
+        for i, h in enumerate(height_search):
+            for j, v in enumerate(velocity_search):
+                # Calculate model phases
+                #phase_topo = h * height_to_phase
+                #phase_motion = v * velocity_to_phase
+                #model_phase = phase_topo + phase_motion
+                phase_topo = np.angle(np.exp(1j * h * height_to_phase))
+                phase_motion = np.angle(np.exp(1j * (v / 1000.0) * velocity_to_phase)) #Timo: velocity is given in mm
+                model_phase = np.angle(np.exp(1j * (phase_topo + phase_motion)))
+
+                # Calculate temporal coherence (equation 6.10)
+                # temporal_coherence = np.abs(
+                #     np.mean(
+                #         np.exp(1j * np.angle(phase_differences)) *
+                #         np.exp(-1j * model_phase)
+                #     )
+                # )
+
+                #Timo: The np.angle of the phase difference seems to be a mistake as these are already given in radians
+                temporal_coherence = np.abs(
+                    np.mean(
+                        np.exp(1j * phase_differences) *
+                        np.exp(-1j * model_phase)
+                    )
+                )
+                coherence_matrix[i, j] = temporal_coherence
+
+        # Find maximum coherence
+        max_idx = np.unravel_index(np.argmax(coherence_matrix), coherence_matrix.shape)
+        best_height = height_search[max_idx[0]]
+        best_velocity = velocity_search[max_idx[1]]
+        max_coherence = coherence_matrix[max_idx]
+
+        return best_height, best_velocity, max_coherence
+
+
+class ParameterEstimator:
+    def __init__(self, ps_info):
+        """
+        Estimate parameters for entire PS network
+
+        Parameters:
+        -----------
+        ps_network: dict
+            Network information including edges and phase data
+        """
+        self.ps_info = ps_info
+        self.points = ps_info['points']
+        self.parameter_estimator = PSIParameterEstimator(
+            wavelength=ps_info['wavelength'],
+            temporal_baselines=ps_info['temporal_baselines'],
+            perpendicular_baselines=ps_info['perpendicular_baselines'],
+            range_distances=ps_info['range_distances'],
+            incidence_angles=ps_info['incidence_angles']
+        )
+
+    def estimate_parameters(self, ref_point : int) -> dict:
+        """
+        Estimate parameters for all edges in the network
+
+        Returns:
+        --------
+        network_parameters: dict
+            Dictionary containing estimated parameters for each edge
+        """
+        parameters = {
+            'height_errors': {},
+            'velocities': {},
+            'temporal_coherences': {}
+        }
+        ref_phases = self.points.iloc[ref_point][3:].to_numpy()
+        ref_phases_cpl = np.exp(1j * ref_phases)
+        for point_id in range(len(self.points)):
+            if point_id != ref_point:
+                phases = self.points.iloc[point_id][3:].to_numpy()
+                cpl_ph = ref_phases_cpl * np.conjugate(np.exp(1j * phases))
+                phase_differences = np.angle(cpl_ph)
+                height_error, velocity, temporal_coherence = (
+                         self.parameter_estimator.estimate_parameters(
+                            phase_differences
+                         )
+                    )
+
+                print(f'{point_id} / {len(self.points)} - {height_error},{velocity},{temporal_coherence}')
+
+                parameters['height_errors'][point_id] = height_error
+                parameters['velocities'][point_id] = velocity
+                parameters['temporal_coherences'][point_id] = temporal_coherence
+            else:
+                parameters['height_errors'][point_id] = 0.0
+                parameters['velocities'][point_id] = 0.0
+                parameters['temporal_coherences'][point_id] = 1.0
+
+        return parameters
+
+
+class PSInfo:
+    def __init__(self, dates: List[datetime], xml_path: str, points_file: str):
+        self.dates = dates
+        self.xml_path = Path(xml_path)
+        self._wavelength = None
+        self._temporal_baselines = None
+        self._perpendicular_baselines = None
+        self._range_distances = None
+        self._incidence_angles = None
+
+
+        # Store file paths
+        self._points = pd.read_csv(points_file)
+
+        # Process XML files
+        self._process_xml_files()
+
+    def _process_xml_files(self):
+        # Speed of light in meters per second
+        SPEED_OF_LIGHT = 299792458.0
+
+        # Initialize arrays with the same length as dates
+        n_dates = len(self.dates)
+        self._temporal_baselines = np.zeros(n_dates)
+        self._perpendicular_baselines = np.zeros(n_dates)
+        self._range_distances = np.zeros(n_dates)  # You'll need to add this from XML if available
+        self._incidence_angles = np.zeros(n_dates)  # You'll need to add this from XML if available
+
+        # Process each XML file
+        for idx, date in enumerate(self.dates):
+            # Find corresponding XML file
+            xml_file = list(self.xml_path.glob(f"*_{date.strftime('%Y-%m-%d')}.topo.interfero.xml"))
+            if not xml_file:
+                continue
+
+            # Parse XML
+            tree = ET.parse(xml_file[0])
+            root = tree.getroot()
+
+            # Extract interferogram attributes
+            interferogram = root.find('Interferogram')
+            if interferogram is not None:
+                self._temporal_baselines[idx] = float(interferogram.get('temp_baseline'))
+                self._perpendicular_baselines[idx] = float(interferogram.get('baseline'))
+
+            # Extract wavelength (only needs to be done once)
+            if self._wavelength is None:
+                wavelength_elem = root.find('.//Wavelength')
+                if wavelength_elem is not None:
+                    self._wavelength = float(wavelength_elem.text)
+
+            # Find all Grid elements
+            grid_elements = root.findall(
+                './/Grid')  # Comment timo: I don't like this and think it should only be derive grids from the master not all as this possibly does
+            if grid_elements:
+                # Find the center grid
+                n_grids = len(grid_elements)
+                center_grid = grid_elements[n_grids // 2]
+
+                # Extract incidence angle
+                incidence_angle_elem = center_grid.find('IncidenceAngle')
+                if incidence_angle_elem is not None:
+                    self._incidence_angles[idx] = float(incidence_angle_elem.text)
+
+                # Extract range time and convert to distance
+                range_time_elem = center_grid.find('RangeTime')
+                if range_time_elem is not None:
+                    range_time = float(range_time_elem.text)
+                    # Convert two-way travel time to one-way distance
+                    self._range_distances[idx] = (range_time * SPEED_OF_LIGHT) / 2
+
+    def __getitem__(self, key: str):
+        """Allow dictionary-like access to the network parameters"""
+        if key == 'wavelength':
+            return self._wavelength
+        elif key == 'temporal_baselines':
+            return self._temporal_baselines
+        elif key == 'perpendicular_baselines':
+            return self._perpendicular_baselines
+        elif key == 'range_distances':
+            return self._range_distances
+        elif key == 'incidence_angles':
+            return self._incidence_angles
+        elif key == 'points':
+            return self._points
+        else:
+            raise KeyError(f"Key {key} not found in PSInfo")
+
+# Read the CSV file
+#df = pd.read_csv('your_file.csv')
+df_psc = pd.read_csv('/home/timo/Data/LasVegasDesc/aps_psc3.csv')
+df_ps = pd.read_csv('/home/timo/Data/LasVegasDesc/ps_phases.csv')
+# Get the column names that are dates (skip the first 3 columns)
+date_columns = df_ps.columns[3:]
+
+# Convert the date strings to datetime objects and store in a list
+dates = [datetime.strptime(date, '%Y-%m-%d') for date in date_columns]
+
+#print("Reading the network") # Adding some comments because it is a long process
+#ps_network = PSNetwork(dates, "/path/to/xml/files")
+ps_info = PSInfo(dates, "/home/timo/Data/LasVegasDesc/topo", "/home/timo/Data/LasVegasDesc/ps_phases.csv")
+
+parameter_estimator = ParameterEstimator(ps_info)
+print("Start parameter estimation") # Adding some comments because it is a long process
+params = parameter_estimator.estimate_parameters(0)
+print("Save parameters") # Adding some comments because it is a long process
+#save_network_parameters(params, ps_network, '/home/timo/Data/LasVegasDesc/ps_results3_perio_year.h5')
+
+
+

@@ -48,12 +48,12 @@ def process_amplitude_dispersion(
         rows, cols = np.where(is_local_min)
 
         # Convert pixel coordinates to map coordinates
-        xs, ys = rasterio.transform.xy(transform, rows, cols)
+        #xs, ys = rasterio.transform.xy(transform, rows, cols) #Timo: We don't want to transform
 
         # Create DataFrame with results
         results_df = pd.DataFrame({
-            'sample': np.array(xs, dtype=int), # xs,  # Timo changed as the integer coordinate gives the correct reading and avoid interpolation
-            'line': np.array(ys, dtype=int), #ys,
+            'sample': np.array(cols, dtype=int), # xs,  # Timo changed as the integer coordinate gives the correct reading and avoid interpolation
+            'line': np.array(rows, dtype=int), #ys,
             'amplitude_dispersion': amplitude_data[rows, cols]
         })
 

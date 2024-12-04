@@ -2,7 +2,7 @@ import numpy as np
 import h5py
 import rasterio
 from rasterio.transform import Affine
-from scipy.interpolate import Rbf
+from scipy.interpolate import Rbf, NearestNDInterpolator
 from pathlib import Path
 import logging
 from typing import Dict, Tuple, List
@@ -95,10 +95,10 @@ def prepare_point_data(points_dict: Dict) -> Tuple[np.ndarray, np.ndarray, np.nd
             np.array(lines),
             np.array(residuals))
 
-
-def create_output_grid(samples: np.ndarray,
-                       lines: np.ndarray,
-                       pixel_size: float = 1.0) -> Tuple[np.ndarray, np.ndarray, Affine]:
+#Timo: Changes for making the exact image size in the grid
+def create_output_grid(master_image_width : int,
+                       master_image_height : int,
+                       pixel_size: float = 1.0): # -> Tuple[np.ndarray, np.ndarray, Affine]:
     """
     Create regular grid for interpolation
 
@@ -121,8 +121,8 @@ def create_output_grid(samples: np.ndarray,
         Affine transform for the output raster
     """
     # Calculate grid extent
-    x_min, x_max = samples.min(), samples.max()
-    y_min, y_max = lines.min(), lines.max()
+    x_min, x_max = 0, master_image_width
+    y_min, y_max = 0, master_image_height
 
     # Calculate number of pixels
     width = int(np.ceil((x_max - x_min) / pixel_size))
@@ -133,9 +133,9 @@ def create_output_grid(samples: np.ndarray,
                      y_min:y_max:height * 1j]
 
     # Create affine transform for the output raster
-    transform = Affine.translation(x_min, y_min) * Affine.scale(pixel_size, pixel_size)
+    #transform = Affine.translation(x_min, y_min) * Affine.scale(pixel_size, pixel_size)
 
-    return grid_x, grid_y, transform
+    return grid_x, grid_y #, transform
 
 
 def interpolate_residuals(samples: np.ndarray,
@@ -170,9 +170,8 @@ def interpolate_residuals(samples: np.ndarray,
     rbf = Rbf(samples, lines, residuals, function=function)
     return rbf(grid_x, grid_y)
 
-
 def save_interpolated_grid(interpolated_data: np.ndarray,
-                           transform: Affine,
+                           #transform: Affine,
                            output_path: Path,
                            epoch: int):
     """
@@ -189,7 +188,8 @@ def save_interpolated_grid(interpolated_data: np.ndarray,
     epoch: int
         Epoch number for filename
     """
-    height, width = interpolated_data.shape
+    #height, width = interpolated_data.shape
+    width, height = interpolated_data.shape
 
     with rasterio.open(
             output_path / f'residual_epoch_{epoch:03d}.tif',
@@ -200,7 +200,7 @@ def save_interpolated_grid(interpolated_data: np.ndarray,
             count=1,
             dtype=np.float32,
             crs=None,  # Set your CRS if applicable
-            transform=transform,
+            #transform=transform,
     ) as dst:
         dst.write(interpolated_data.astype(np.float32), 1)
 
@@ -210,6 +210,9 @@ def main():
     logger = setup_logging()
 
     # Set paths
+    master_image_width = 10944 #Timo: add fixed size not based on min/max samples from the PSCs
+    master_image_height = 6016
+
     input_file = Path('/home/timo/Data/LasVegasDesc/ps_results3_psc_filt_year_results.h5')
     output_dir = Path('/home/timo/Data/LasVegasDesc/aps')
     output_dir.mkdir(exist_ok=True)
@@ -223,7 +226,9 @@ def main():
 
     # Create output grid
     logger.info("Creating output grid")
-    grid_x, grid_y, transform = create_output_grid(samples, lines, pixel_size=10) #Timo: Added larger pixel size multi-looking to avoid memory errors
+    #grid_x, grid_y, transform = create_output_grid(master_image_width, master_image_height, pixel_size=20) #Timo: Added larger pixel size multi-looking to avoid memory errors
+    grid_x, grid_y = create_output_grid(master_image_width, master_image_height,
+                                                   pixel_size=20)  # Timo: Added larger pixel size multi-looking to avoid memory errors
 
     # Process each epoch
     n_epochs = residuals.shape[1]
@@ -237,12 +242,12 @@ def main():
 
         # Interpolate
         interpolated = interpolate_residuals(
-            samples / 10, lines / 10, epoch_residuals, grid_x, grid_y
+            samples / 20, lines / 20, epoch_residuals, grid_x, grid_y, function='cubic'
         ) #Timo: Added division of the samples and lines coordinates by the grid multi-looking
 
         # Save result
         save_interpolated_grid(
-            interpolated, transform, output_dir, epoch
+            interpolated, output_dir, epoch
         )
 
     logger.info("Processing completed")

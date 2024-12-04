@@ -1,4 +1,4 @@
-Claude 3.5 Sonet on 2024-11-13
+Claude 3.5 Sonnet on 2024-11-13
 
 > I am working on implementing the permanent scatterer interferometry approach in Python. We created a tiff image containing the amplitude dispersion index. We want to read that image and select suitable points according to given thresholds. What would be a good output format of the results? We want a format that can be read machine and language independent as far as possible.
 

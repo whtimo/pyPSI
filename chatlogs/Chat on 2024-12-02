@@ -1,4 +1,4 @@
-Claude 3.5 Sonet on 2024-12-02
+Claude 3.5 Sonnet on 2024-12-02
 
 > I am developing a Python3 implementation of the permanent scatterer interferometry approach. I have unwrapped phase residuals given in image coordinates (sample, line) and a float value for the residual. Now, I need to interpolate over the image from these points. What are good interpolation methods? Can you give me implementations in Python3? Please only show me the code and do not run it in th code interpreter.
 

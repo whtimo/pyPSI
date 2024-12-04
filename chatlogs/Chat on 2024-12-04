@@ -1,0 +1,92 @@
+Claude 3.5 Sonnet on 2024-12-04
+
+> I am developing a Permanent Scatterer Interferometrry software in Python. Having a set of unwrapped phase residuals saved as floating point tiff files in a given directory, I want to load these residuals, use a large low-pass filter on the image with a size given as parameter and then a high-pass filter in time, that is between the pixels of all the images at the same position. The result should be wrapped between -pi and pi and saved into another set of tiff images for each original residual image. Can you give me a code example in Python to accomplish this. Please only show me the code and do not run it in the code interpreter.
+
+
+Here's a Python code example to accomplish the PSI processing you described. This code assumes you have NumPy, SciPy, and rasterio installed for image processing:
+
+```python
+import numpy as np
+from scipy.ndimage import gaussian_filter
+import rasterio
+import os
+from pathlib import Path
+
+def process_phase_residuals(input_dir, output_dir, spatial_filter_size):
+    """
+    Process phase residuals with spatial and temporal filtering
+    
+    Parameters:
+    input_dir: str - Directory containing input TIFF files
+    output_dir: str - Directory for output TIFF files
+    spatial_filter_size: float - Size of the Gaussian low-pass filter
+    """
+    
+    # Create output directory if it doesn't exist
+    Path(output_dir).mkdir(parents=True, exist_ok=True)
+    
+    # Get all tiff files in input directory
+    tiff_files = sorted([f for f in os.listdir(input_dir) if f.endswith('.tif')])
+    
+    # First pass: Load all images to get dimensions and prepare temporal processing
+    first_image = rasterio.open(os.path.join(input_dir, tiff_files[0]))
+    height, width = first_image.shape
+    n_images = len(tiff_files)
+    
+    # Create 3D array to store all images
+    phase_stack = np.zeros((n_images, height, width), dtype=np.float32)
+    
+    # Load all images
+    for i, tiff_file in enumerate(tiff_files):
+        with rasterio.open(os.path.join(input_dir, tiff_file)) as src:
+            phase_stack[i] = src.read(1)
+            profile = src.profile  # Save profile for writing output
+    
+    # Spatial filtering: Apply Gaussian low-pass filter to each image
+    for i in range(n_images):
+        phase_stack[i] = gaussian_filter(phase_stack[i], sigma=spatial_filter_size)
+    
+    # Temporal filtering: High-pass filter in time domain
+    # Calculate temporal mean
+    temporal_mean = np.mean(phase_stack, axis=0)
+    
+    # Remove temporal mean (high-pass filtering)
+    phase_stack = phase_stack - temporal_mean[np.newaxis, :, :]
+    
+    # Wrap phases between -π and π
+    wrapped_phases = np.angle(np.exp(1j * phase_stack))
+    
+    # Save processed images
+    profile.update(dtype=rasterio.float32)
+    
+    for i, tiff_file in enumerate(tiff_files):
+        output_path = os.path.join(output_dir, f"processed_{tiff_file}")
+        with rasterio.open(output_path, 'w', **profile) as dst:
+            dst.write(wrapped_phases[i].astype(np.float32), 1)
+
+# Example usage:
+# process_phase_residuals(
+#     input_dir='path/to/input/directory',
+#     output_dir='path/to/output/directory',
+#     spatial_filter_size=5.0
+# )
+```
+
+This code:
+1. Takes input and output directories and filter size as parameters
+2. Loads all TIFF files from the input directory
+3. Applies a Gaussian low-pass filter spatially to each image
+4. Performs temporal high-pass filtering by removing the temporal mean
+5. Wraps the phases between -π and π
+6. Saves the processed images to the output directory
+
+The spatial filtering is done using a Gaussian filter where the size parameter controls the strength of the low-pass filter. The temporal filtering is implemented as a simple high-pass filter by removing the mean temporal component.
+
+Make sure you have the required libraries installed:
+```bash
+pip install numpy scipy rasterio
+```
+
+You can adjust the `spatial_filter_size` parameter to control the strength of the spatial filtering. Larger values will result in more smoothing.
+
+

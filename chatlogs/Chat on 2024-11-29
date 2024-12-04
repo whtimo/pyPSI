@@ -1,4 +1,4 @@
-Claude 3.5 Sonet on 2024-11-29
+Claude 3.5 Sonnet on 2024-11-29
 
 > I am developing a permanent scatterer interferometry workflow in Python. After having connected the PS points via triangulation, estimated the height, velocity, and residual differences along the edges and getting the temporal coherence for each edge, I need now to connect each point in the network to a given reference point along the network edges. The ideal path should be weighted, for example based on the temporal coherence. How to implement that in Python3? Can you just show me the code and not run it in the code interpreter.
 

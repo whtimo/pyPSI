@@ -5,7 +5,6 @@ import os
 from pathlib import Path
 from datetime import datetime
 import re
-import glob
 
 
 def extract_date_from_filename(filename: str) -> str:
@@ -61,11 +60,9 @@ def read_complex_phase(file_path: str, pixel_coords: np.ndarray) -> np.ndarray:
 
 def extract_ps_phases(ps_csv_path: str,
                       interferogram_dir: str,
-                      aps_path: str,
                       output_csv_path: str):
     """
-    Extract phase values for PS points, remove atmospheric phase screen (APS),
-    and save to CSV
+    Extract phase values for PS points and save to CSV
 
     Parameters:
     -----------
@@ -73,8 +70,6 @@ def extract_ps_phases(ps_csv_path: str,
         Path to CSV file containing PS coordinates
     interferogram_dir: str
         Directory containing complex interferogram TIFF files
-    aps_path: str
-        Directory containing APS TIFF files (*_000.tif, *_001.tif, etc.)
     output_csv_path: str
         Path where output CSV will be saved
     """
@@ -96,43 +91,21 @@ def extract_ps_phases(ps_csv_path: str,
     }
 
     # Extract phase values for each interferogram
-    for idx, ifg_file in enumerate(interferogram_files):
+    for ifg_file in interferogram_files:
         ifg_path = Path(interferogram_dir) / ifg_file
-        aps_file = Path(aps_path) / f"*_{idx:03d}.tif"
-
-        # Find the matching APS file
-        aps_file = glob.glob(str(aps_file))[0]
 
         # Extract date from filename
         date = extract_date_from_filename(ifg_file)
 
-        # Read phase values from interferogram
+        # Read phase values
         phases = read_complex_phase(str(ifg_path), pixel_coords)
 
-        # Read APS values using interpolation
-        with rasterio.open(aps_file) as src:
-            # Use bilinear interpolation for floating point coordinates
-            aps_values = [
-                float(next(src.sample([(x, y)], 1))[0])
-                for x, y in pixel_coords
-            ]
-
-        # Convert phases to complex numbers
-        complex_phases = np.exp(1j * phases)
-        complex_aps = np.exp(1j * np.array(aps_values))
-
-        # Subtract APS in complex domain (multiplication by complex conjugate)
-        corrected_complex = complex_phases * np.conjugate(complex_aps)
-
-        # Convert back to phase values
-        corrected_phases = np.angle(corrected_complex)
-
         # Add to results dictionary
-        results[date] = corrected_phases
+        results[date] = phases
 
     # Create output DataFrame and save to CSV
     output_df = pd.DataFrame(results)
-    output_df.to_csv(output_csv_path, index=True)
+    output_df.to_csv(output_csv_path, index=True) # manually changed index to True
 
 
 # Example usage:
@@ -143,8 +116,7 @@ if __name__ == "__main__":
     # OUTPUT_CSV_PATH = "path/to/output/ps_phases.csv"
     PS_CSV_PATH = "/home/timo/Data/LasVegasDesc/aps_psc3.csv"
     INTERFEROGRAM_DIR = "/home/timo/Data/LasVegasDesc/topo"
-    APS_DIR = "/home/timo/Data/LasVegasDesc/aps_filtered"
     OUTPUT_CSV_PATH = "/home/timo/Data/LasVegasDesc/aps_psc_phases3.csv"
 
     # Extract phases and save to CSV
-    extract_ps_phases(PS_CSV_PATH, INTERFEROGRAM_DIR, APS_DIR, OUTPUT_CSV_PATH)
+    extract_ps_phases(PS_CSV_PATH, INTERFEROGRAM_DIR, OUTPUT_CSV_PATH)

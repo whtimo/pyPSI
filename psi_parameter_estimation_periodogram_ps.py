@@ -5,9 +5,70 @@ import pandas as pd
 from datetime import datetime
 import xml.etree.ElementTree as ET
 from pathlib import Path
-import h5py
-from sympy import conjugate
 
+from psi_parameter_estimation import save_network_parameters
+
+
+def save_point_data_to_csv(input_csv, output_csv, params):
+    """
+    Save point data to CSV including id, sample, line, height errors, velocities, and temporal coherence.
+
+    Parameters:
+    -----------
+    input_csv : str
+        Path to input CSV file containing sample and line data
+    output_csv : str
+        Path to output CSV file
+    params : dict
+        Dictionary containing 'height_errors', 'velocities', and 'temporal_coherences' arrays
+    point_ids : array-like
+        Array of point IDs for height errors and temporal coherence
+    edge_ids : array-like
+        Array of edge IDs for velocities
+    """
+
+    # Read the input CSV file
+    df = pd.read_csv(input_csv)
+
+    # Create arrays for the parameters
+    height_errors_array = np.array([params['height_errors'][point_id] for point_id in range(len(df))])
+    velocities_array = np.array([params['velocities'][point_id] for point_id in range(len(df))])
+    temporal_coherences_array = np.array([params['temporal_coherences'][point_id] for point_id in range(len(df))])
+
+    # Create a new dataframe with the required columns
+    output_df = pd.DataFrame({
+        'id': df.index,
+        'sample': df['sample'],
+        'line': df['line'],
+        'height_errors': height_errors_array,
+        'velocities': velocities_array,
+        'temporal_coherence': temporal_coherences_array
+    })
+
+    # Save to CSV file
+    output_df.to_csv(output_csv, index=False)
+
+def find_matching_point_index(reference_point_file, first_csv, second_csv):
+    # Read the reference point ID from the text file
+    with open(reference_point_file, 'r') as f:
+        point_id = int(f.read().strip())
+
+    # Read both CSV files using pandas
+    import pandas as pd
+    df1 = pd.read_csv(first_csv)
+    df2 = pd.read_csv(second_csv)
+
+    # Get the sample and line coordinates for the reference point
+    reference_row = df1.iloc[point_id]
+    sample = reference_row['sample']
+    line = reference_row['line']
+
+    # Find the matching index in the second CSV file
+    matching_index = df2[(df2['sample'] == sample) &
+                         (df2['line'] == line)].index
+
+    # Return the first matching index if found, otherwise None
+    return matching_index[0] if len(matching_index) > 0 else None
 
 class PSIParameterEstimator:
     def __init__(self,
@@ -256,15 +317,16 @@ date_columns = df_ps.columns[3:]
 # Convert the date strings to datetime objects and store in a list
 dates = [datetime.strptime(date, '%Y-%m-%d') for date in date_columns]
 
+ref_point = find_matching_point_index('/home/timo/Data/LasVegasDesc/ref_point2.csv', '/home/timo/Data/LasVegasDesc/aps_psc3.csv', '/home/timo/Data/LasVegasDesc/ps_phases.csv')
 #print("Reading the network") # Adding some comments because it is a long process
 #ps_network = PSNetwork(dates, "/path/to/xml/files")
 ps_info = PSInfo(dates, "/home/timo/Data/LasVegasDesc/topo", "/home/timo/Data/LasVegasDesc/ps_phases.csv")
 
 parameter_estimator = ParameterEstimator(ps_info)
 print("Start parameter estimation") # Adding some comments because it is a long process
-params = parameter_estimator.estimate_parameters(0)
+params = parameter_estimator.estimate_parameters(ref_point)
 print("Save parameters") # Adding some comments because it is a long process
 #save_network_parameters(params, ps_network, '/home/timo/Data/LasVegasDesc/ps_results3_perio_year.h5')
-
+save_point_data_to_csv("/home/timo/Data/LasVegasDesc/ps_phases.csv", "/home/timo/Data/LasVegasDesc/ps_results.csv", params)
 
 

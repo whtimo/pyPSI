@@ -62,6 +62,7 @@ def read_complex_phase(file_path: str, pixel_coords: np.ndarray) -> np.ndarray:
 def extract_ps_phases(ps_csv_path: str,
                       interferogram_dir: str,
                       aps_path: str,
+                      grid_pixel_size: float,
                       output_csv_path: str):
     """
     Extract phase values for PS points, remove atmospheric phase screen (APS),
@@ -94,6 +95,8 @@ def extract_ps_phases(ps_csv_path: str,
         'sample': ps_df['sample'],
         'line': ps_df['line']
     }
+
+    aps_pixel_coords = pixel_coords / grid_pixel_size
 
     # Extract phase values for each interferogram
     for idx, ifg_file in enumerate(interferogram_files):
@@ -141,10 +144,10 @@ if __name__ == "__main__":
     # PS_CSV_PATH = "path/to/ps_coordinates.csv"
     # INTERFEROGRAM_DIR = "path/to/interferogram/directory"
     # OUTPUT_CSV_PATH = "path/to/output/ps_phases.csv"
-    PS_CSV_PATH = "/home/timo/Data/LasVegasDesc/aps_psc3.csv"
+    PS_CSV_PATH = "/home/timo/Data/LasVegasDesc/ps_points.csv"
     INTERFEROGRAM_DIR = "/home/timo/Data/LasVegasDesc/topo"
     APS_DIR = "/home/timo/Data/LasVegasDesc/aps_filtered"
-    OUTPUT_CSV_PATH = "/home/timo/Data/LasVegasDesc/aps_psc_phases3.csv"
+    OUTPUT_CSV_PATH = "/home/timo/Data/LasVegasDesc/ps_phases.csv"
 
     # Extract phases and save to CSV
-    extract_ps_phases(PS_CSV_PATH, INTERFEROGRAM_DIR, APS_DIR, OUTPUT_CSV_PATH)
+    extract_ps_phases(PS_CSV_PATH, INTERFEROGRAM_DIR, APS_DIR, 20.0, OUTPUT_CSV_PATH)

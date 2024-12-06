@@ -158,7 +158,9 @@ class PSIParameterEstimator:
             np.exp(1j * phase_differences) *
             np.exp(-1j * model_phase)
         )
-
+        residuals2 = np.angle(
+            np.exp(1j * (phase_differences - model_phase))
+        )
         return best_height, best_velocity, max_coherence, residuals
 
 

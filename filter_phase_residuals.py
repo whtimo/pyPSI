@@ -32,22 +32,21 @@ def process_phase_residuals(input_dir, output_dir, spatial_filter_size):
     # Load all images
     for i, tiff_file in enumerate(tiff_files):
         with rasterio.open(os.path.join(input_dir, tiff_file)) as src:
-            phase_stack[i] = np.angle(np.exp(1j * src.read(1))) #Timo: use wrapped phases
-            #phase_stack[i] = src.read(1)
+            #phase_stack[i] = np.angle(np.exp(1j * src.read(1))) #Timo: use wrapped phases
+            phase_stack[i] = src.read(1)
             profile = src.profile  # Save profile for writing output
 
-
-    # Spatial filtering: Apply Gaussian low-pass filter to each image
-    for i in range(n_images):
-        phase_stack[i] = gaussian_filter(phase_stack[i], sigma=spatial_filter_size)
-
-
-        # Temporal filtering: High-pass filter in time domain
-        # Calculate temporal mean
+    # Temporal filtering: High-pass filter in time domain
+    # Calculate temporal mean
     temporal_mean = np.mean(phase_stack, axis=0)
 
     # Remove temporal mean (high-pass filtering)
     phase_stack = phase_stack - temporal_mean[np.newaxis, :, :]
+    #phase_stack = np.angle(np.exp(1j * phase_stack))
+
+    # Spatial filtering: Apply Gaussian low-pass filter to each image
+    for i in range(n_images):
+        phase_stack[i] = gaussian_filter(phase_stack[i], sigma=spatial_filter_size)
 
     # Wrap phases between -π and π
     wrapped_phases = np.angle(np.exp(1j * phase_stack))
@@ -70,5 +69,5 @@ def process_phase_residuals(input_dir, output_dir, spatial_filter_size):
 process_phase_residuals(
     input_dir='/home/timo/Data/LasVegasDesc/aps',
     output_dir='/home/timo/Data/LasVegasDesc/aps_filtered',
-    spatial_filter_size=10.0
+    spatial_filter_size=1000.0
 )

@@ -110,25 +110,31 @@ def extract_ps_phases(ps_csv_path: str,
         date = extract_date_from_filename(ifg_file)
 
         # Read phase values from interferogram
-        phases = read_complex_phase(str(ifg_path), pixel_coords)
+        #phases = read_complex_phase(str(ifg_path), pixel_coords)
+        with rasterio.open(str(ifg_path)) as src_topo:
+            cpl_phases = src_topo.read(1)
 
         # Read APS values using interpolation
         with rasterio.open(aps_file) as src:
-            # Use bilinear interpolation for floating point coordinates
-            aps_values = [
-                float(next(src.sample([(x, y)], 1))[0])
-                for x, y in pixel_coords
-            ]
+            aps_phases = src.read(1)
+
+        aps_cpl_phases = np.exp(1j * aps_phases)
+        ph_diff_cpl = cpl_phases * np.conjugate(aps_cpl_phases)
+        ph_diff = np.angle(ph_diff_cpl)
+
+        coords = [(sample, line) for sample, line in pixel_coords]
+        corrected_phases = [ph_diff[row, col] for col, row in coords]
+
 
         # Convert phases to complex numbers
-        complex_phases = np.exp(1j * phases)
-        complex_aps = np.exp(1j * np.array(aps_values))
+        #complex_phases = np.exp(1j * phases)
+        #complex_aps = np.exp(1j * np.array(aps_values))
 
         # Subtract APS in complex domain (multiplication by complex conjugate)
-        corrected_complex = complex_phases * np.conjugate(complex_aps)
+        #corrected_complex = complex_phases * np.conjugate(complex_aps)
 
         # Convert back to phase values
-        corrected_phases = np.angle(corrected_complex)
+        #corrected_phases = np.angle(corrected_complex)
 
         # Add to results dictionary
         results[date] = corrected_phases
@@ -147,7 +153,7 @@ if __name__ == "__main__":
     PS_CSV_PATH = "/home/timo/Data/LasVegasDesc/ps_points.csv"
     INTERFEROGRAM_DIR = "/home/timo/Data/LasVegasDesc/topo"
     APS_DIR = "/home/timo/Data/LasVegasDesc/aps_filtered"
-    OUTPUT_CSV_PATH = "/home/timo/Data/LasVegasDesc/ps_phases.csv"
+    OUTPUT_CSV_PATH = "/home/timo/Data/LasVegasDesc/ps_phases6.csv"
 
     # Extract phases and save to CSV
-    extract_ps_phases(PS_CSV_PATH, INTERFEROGRAM_DIR, APS_DIR, 20.0, OUTPUT_CSV_PATH)
+    extract_ps_phases(PS_CSV_PATH, INTERFEROGRAM_DIR, APS_DIR, 1.0, OUTPUT_CSV_PATH)

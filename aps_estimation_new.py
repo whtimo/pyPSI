@@ -1,8 +1,10 @@
 import numpy as np
+import rasterio
 from scipy.interpolate import griddata, Rbf, NearestNDInterpolator
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import RBF, WhiteKernel
 import h5py
+from pathlib import Path
 
 def prepare_point_data(points_dict):
     """
@@ -224,30 +226,49 @@ def interpolate_phase_residuals_natural_neighbor(samples, lines, values, grid_si
 
     return interpolated
 
-data = load_path_parameters('/home/timo/Data/LasVegasDesc/ps_results3_psc_filt_year_results.h5')
-samples, lines, residuals = prepare_point_data(data['points'])
+def save_interpolated_grid(interpolated_data: np.ndarray,
+                           output_path: Path,
+                           epoch: int):
 
-# Example usage
-#samples = np.array([...])  # your sample coordinates
-#lines = np.array([...])    # your line coordinates
-#values = np.array([...])   # your phase residual values
-#grid_size = (1000, 1000)   # desired output grid size
+    width, height = interpolated_data.shape
+
+    with rasterio.open(
+            output_path / f'residual_epoch_{epoch:03d}.tif',
+            'w',
+            driver='GTiff',
+            height=height,
+            width=width,
+            count=1,
+            dtype=np.float32,
+            crs=None,  # Set your CRS if applicable
+            #transform=transform,
+    ) as dst:
+        dst.write(interpolated_data.astype(np.float32), 1)
 
 master_image_width = 10944  # Timo: add fixed size not based on min/max samples from the PSCs
 master_image_height = 6016
-values = residuals[:,0]
 grid_size = (master_image_width, master_image_height)
 
-# Using griddata
-interpolated_grids = interpolate_phase_residuals_griddata(samples, lines, values, grid_size)
+input_file = Path('/home/timo/Data/LasVegasDesc/ps_results3_psc_filt_year_results.h5')
+output_dir = Path('/home/timo/Data/LasVegasDesc/aps')
+output_dir.mkdir(exist_ok=True)
 
-# Using RBF
-#interpolated_rbf = interpolate_phase_residuals_rbf(samples / 10, lines / 10, values, grid_size)
+# Load data
+data = load_path_parameters(input_file)
 
-# Using Kriging
-#interpolated_kriging = interpolate_phase_residuals_kriging(samples / 10, lines / 10, values, grid_size)
+# Prepare point data
+samples, lines, residuals = prepare_point_data(data['points'])
+n_epochs = residuals.shape[1]
+print(f"Processing {n_epochs} epochs")
 
-# Using Natural Neighbor
-interpolated_nn = interpolate_phase_residuals_natural_neighbor(samples, lines, values, grid_size)
+for epoch in range(n_epochs):
+    print(f"Processing epoch {epoch + 1}/{n_epochs}")
+
+    # Get residuals for current epoch
+    epoch_residuals = residuals[:, epoch]
+    interpolated_nn = interpolate_phase_residuals_natural_neighbor(lines, samples, epoch_residuals, grid_size)
+    save_interpolated_grid(
+            interpolated_nn, output_dir, epoch
+        )
 
 print('end')

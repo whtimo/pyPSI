@@ -146,9 +146,15 @@ class PSIParameterEstimator:
         max_coherence = coherence_matrix[max_idx]
 
         # Calculate residuals
-        best_phase_topo = best_height * height_to_phase
-        best_phase_motion = best_velocity * velocity_to_phase
-        model_phase = best_phase_topo + best_phase_motion
+        best_phase_topo = np.angle(np.exp(1j * best_height * height_to_phase))
+        best_phase_motion = np.angle(np.exp(1j * (best_velocity / 1000) * velocity_to_phase))
+        best_model_phase = np.angle(np.exp(1j * (best_phase_topo + best_phase_motion)))
+        temporal_coherence2 = np.abs(
+            np.mean(
+                np.exp(1j * phase_differences) *
+                np.exp(-1j * best_model_phase)
+            )
+        )
         # residuals = np.angle(
         #     np.exp(1j * np.angle(phase_differences)) *
         #     np.exp(-1j * model_phase)
@@ -156,11 +162,9 @@ class PSIParameterEstimator:
         # Timo: The np.angle of the phase difference seems to be a mistake as these are already given in radians
         residuals = np.angle(
             np.exp(1j * phase_differences) *
-            np.exp(-1j * model_phase)
+            np.exp(-1j * best_model_phase)
         )
-        residuals2 = np.angle(
-            np.exp(1j * (phase_differences - model_phase))
-        )
+
         return best_height, best_velocity, max_coherence, residuals
 
 
@@ -373,7 +377,7 @@ parameter_estimator = NetworkParameterEstimator(ps_network)
 print("Start parameter estimation") # Adding some comments because it is a long process
 params = parameter_estimator.estimate_network_parameters()
 print("Save parameters") # Adding some comments because it is a long process
-save_network_parameters(params, ps_network, '/home/timo/Data/LasVegasDesc/ps_results3_perio_year.h5')
+save_network_parameters(params, ps_network, '/home/timo/Data/LasVegasDesc/ps_results4_perio_year.h5')
 
 
 

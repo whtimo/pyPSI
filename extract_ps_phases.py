@@ -1,3 +1,5 @@
+import glob
+
 import pandas as pd
 import numpy as np
 import rasterio
@@ -112,12 +114,13 @@ def extract_ps_phases(ps_csv_path: str,
         with rasterio.open(aps_file) as src:
             # Use bilinear interpolation for floating point coordinates
             aps_values = [
-                float(next(src.sample([(x, y)], 1))[0])
+                -float(next(src.sample([(x, y)], 1))[0])
                 for x, y in pixel_coords
             ]
 
         # Convert phases to complex numbers
         complex_phases = np.exp(1j * phases)
+        #complex_aps = np.exp(1j * np.array(aps_values))
         complex_aps = np.exp(1j * np.array(aps_values))
 
         # Subtract APS in complex domain (multiplication by complex conjugate)
@@ -140,9 +143,10 @@ if __name__ == "__main__":
     # PS_CSV_PATH = "path/to/ps_coordinates.csv"
     # INTERFEROGRAM_DIR = "path/to/interferogram/directory"
     # OUTPUT_CSV_PATH = "path/to/output/ps_phases.csv"
-    PS_CSV_PATH = "/home/timo/Data/LasVegasDesc/aps_psc3.csv"
-    INTERFEROGRAM_DIR = "/home/timo/Data/LasVegasDesc/topo"
-    OUTPUT_CSV_PATH = "/home/timo/Data/LasVegasDesc/aps_psc_phases3.csv"
+    PS_CSV_PATH = "/home/timo/Data/LasVegasDesc2/psc.csv"
+    INTERFEROGRAM_DIR = "/home/timo/Data/LasVegasDesc2/topo"
+    APS_DIR = "/home/timo/Data/LasVegasDesc2/aps_filtered6"
+    OUTPUT_CSV_PATH = "/home/timo/Data/LasVegasDesc2/psc_phases13.csv"
 
     # Extract phases and save to CSV
-    extract_ps_phases(PS_CSV_PATH, INTERFEROGRAM_DIR, OUTPUT_CSV_PATH)
+    extract_ps_phases(PS_CSV_PATH, INTERFEROGRAM_DIR, APS_DIR, OUTPUT_CSV_PATH)

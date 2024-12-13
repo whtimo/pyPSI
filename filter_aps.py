@@ -52,7 +52,8 @@ def process_phase_residuals(input_dir, output_dir, spatial_filter_size):
 
 
     # Wrap phases between -π and π
-    wrapped_phases = np.angle(np.exp(1j * phase_stack))
+    #wrapped_phases = np.angle(np.exp(1j * phase_stack))
+    wrapped_phases = phase_stack #Timo: Prefer unwrapped for visualization
 
     # Save processed images
     #profile.update(dtype=rasterio.float32)

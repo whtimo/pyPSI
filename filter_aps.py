@@ -33,7 +33,7 @@ def process_phase_residuals(input_dir, output_dir, spatial_filter_size):
     for i, tiff_file in enumerate(tiff_files):
         with rasterio.open(os.path.join(input_dir, tiff_file)) as src:
             phase_stack[i] = src.read(1)
-            profile = src.profile  # Save profile for writing output
+            #profile = src.profile  # Save profile for writing output
 
     #Timo: Changed as first we have the high-pass filter
 
@@ -78,6 +78,6 @@ def process_phase_residuals(input_dir, output_dir, spatial_filter_size):
 
 process_phase_residuals(
     input_dir='/home/timo/Data/LasVegasDesc2/aps3',
-    output_dir='/home/timo/Data/LasVegasDesc2/aps_filtered8',
-    spatial_filter_size=20.0
+    output_dir='/home/timo/Data/LasVegasDesc2/aps_filtered9',
+    spatial_filter_size=200.0
 )

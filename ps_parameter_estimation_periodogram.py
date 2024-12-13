@@ -49,6 +49,29 @@ def save_point_data_to_csv(input_csv, output_csv, params, point_ids, edge_ids):
     # Save to CSV file
     output_df.to_csv(output_csv, index=False)
 
+def find_matching_point_index(reference_point_file, first_csv, second_csv):
+    # Read the reference point ID from the text file
+    with open(reference_point_file, 'r') as f:
+        point_id = int(f.read().strip())
+
+    # Read both CSV files using pandas
+
+    df1 = pd.read_csv(first_csv)
+    df2 = pd.read_csv(second_csv)
+
+    # Get the sample and line coordinates for the reference point
+    reference_row = df1.iloc[point_id]
+    sample = reference_row['sample']
+    line = reference_row['line']
+
+    # Find the matching index in the second CSV file
+    matching_index = df2[(df2['sample'] == sample) &
+                         (df2['line'] == line)].index
+
+    # Return the first matching index if found, otherwise None
+    return matching_index[0] if len(matching_index) > 0 else None
+
+
 class PSIParameterEstimator:
     def __init__(self,
                  wavelength: float,
@@ -78,7 +101,7 @@ class PSIParameterEstimator:
         self.range_distances = range_distances
         self.incidence_angles = incidence_angles
 
-    def estimate_parameters_along_edge(self, phase_differences):
+    def estimate_parameters(self, phase_differences):
         """
         Estimates height error and velocity along network edges using periodogram approach.
 
@@ -155,10 +178,10 @@ class PSIParameterEstimator:
             np.exp(-1j * best_model_phase)
         )
 
-        return best_height, best_velocity, max_coherence, residuals
+        return best_height, best_velocity, max_coherence
 
 
-class NetworkParameterEstimator:
+class ParameterEstimator:
     def __init__(self, ps_network):
         """
         Estimate parameters for entire PS network
@@ -168,7 +191,8 @@ class NetworkParameterEstimator:
         ps_network: dict
             Network information including edges and phase data
         """
-        self.network = ps_network
+        self.ps_info = ps_info
+        self.points = ps_info['points']
         self.parameter_estimator = PSIParameterEstimator(
             wavelength=ps_network['wavelength'],
             temporal_baselines=ps_network['temporal_baselines'],
@@ -177,7 +201,7 @@ class NetworkParameterEstimator:
             incidence_angles=ps_network['incidence_angles']
         )
 
-    def estimate_network_parameters(self) -> dict:
+    def estimate_parameters(self, ref_point : int) -> dict:
         """
         Estimate parameters for all edges in the network
 
@@ -186,34 +210,37 @@ class NetworkParameterEstimator:
         network_parameters: dict
             Dictionary containing estimated parameters for each edge
         """
-        network_parameters = {
+        parameters = {
             'height_errors': {},
             'velocities': {},
-            'temporal_coherences': {},  # New dictionary for temporal coherences
-            'residuals': {}
+            'temporal_coherences': {}
         }
 
-        edges = self.network['edges'].items()
-        for edge_id, edge_data in edges:
-
-            height_error, velocity, temporal_coherence, residuals = (
-                self.parameter_estimator.estimate_parameters_along_edge(
-                    edge_data['phase_differences']
+        ref_phases = self.points.iloc[ref_point][3:].to_numpy()
+        for point_id in range(len(self.points)):
+            if point_id != ref_point:
+                phases = self.points.iloc[point_id][3:].to_numpy()
+                phase_differences = np.angle(np.exp(1j * (ref_phases - phases)))
+                height_error, velocity, temporal_coherence = (
+                    self.parameter_estimator.estimate_parameters(
+                        phase_differences
+                    )
                 )
-            )
+                print(f'{point_id} / {len(self.points)} - {height_error},{velocity},{temporal_coherence}')
 
-            print(f'{edge_id} / {len(edges)} - {height_error},{velocity},{temporal_coherence}')
+                parameters['height_errors'][point_id] = height_error
+                parameters['velocities'][point_id] = velocity
+                parameters['temporal_coherences'][point_id] = temporal_coherence
+            else:
+                parameters['height_errors'][point_id] = 0.0
+                parameters['velocities'][point_id] = 0.0
+                parameters['temporal_coherences'][point_id] = 1.0
 
-            network_parameters['height_errors'][edge_id] = height_error
-            network_parameters['velocities'][edge_id] = velocity
-            network_parameters['temporal_coherences'][edge_id] = temporal_coherence
-            network_parameters['residuals'][edge_id] = residuals
-
-        return network_parameters
+        return parameters
 
 
-class PSNetwork:
-    def __init__(self, dates: List[datetime], xml_path: str, triangle_file: str, points_file: str):
+class PSInfo:
+    def __init__(self, dates: List[datetime], xml_path: str, points_file: str):
         self.dates = dates
         self.xml_path = Path(xml_path)
         self._wavelength = None
@@ -221,16 +248,14 @@ class PSNetwork:
         self._perpendicular_baselines = None
         self._range_distances = None
         self._incidence_angles = None
-        self._edges = None
+
 
         # Store file paths
-        self.triangle_file = triangle_file
-        self.points_file = points_file
+        self._points = pd.read_csv(points_file)
 
         # Process XML files
         self._process_xml_files()
-        # Process network edges
-        self._process_network_edges()
+
 
     def _process_network_edges(self):
         """Process triangle and points files to create edge data using complex numbers"""
@@ -344,30 +369,31 @@ class PSNetwork:
             return self._range_distances
         elif key == 'incidence_angles':
             return self._incidence_angles
-        elif key == 'edges':
-            return self._edges
+        elif key == 'points':
+            return self._points
         else:
             raise KeyError(f"Key {key} not found in PSNetwork")
 
 # Read the CSV file
-#df = pd.read_csv('your_file.csv')
-df = pd.read_csv('/home/timo/Data/LasVegasDesc/aps_psc_phases3.csv')
-
+df_psc = pd.read_csv('/home/timo/Data/LasVegasDesc2/psc.csv')
+df_ps = pd.read_csv('/home/timo/Data/LasVegasDesc2/psc_phases15.csv')
 # Get the column names that are dates (skip the first 3 columns)
-date_columns = df.columns[3:]
+date_columns = df_ps.columns[3:]
 
 # Convert the date strings to datetime objects and store in a list
 dates = [datetime.strptime(date, '%Y-%m-%d') for date in date_columns]
 
-print("Reading the network") # Adding some comments because it is a long process
+ref_point = find_matching_point_index('/home/timo/Data/LasVegasDesc2/ref_point.txt', '/home/timo/Data/LasVegasDesc2/psc.csv', '/home/timo/Data/LasVegasDesc2/psc_phases15.csv')
+#print("Reading the network") # Adding some comments because it is a long process
 #ps_network = PSNetwork(dates, "/path/to/xml/files")
-ps_network = PSNetwork(dates, "/home/timo/Data/LasVegasDesc/topo", "/home/timo/Data/LasVegasDesc/triangulation_results3.csv", "/home/timo/Data/LasVegasDesc/aps_psc_phases3.csv")
+ps_info = PSInfo(dates, "/home/timo/Data/LasVegasDesc2/topo",  "/home/timo/Data/LasVegasDesc2/psc_phases15.csv")
 
-parameter_estimator = NetworkParameterEstimator(ps_network)
+parameter_estimator = ParameterEstimator(ps_info)
 print("Start parameter estimation") # Adding some comments because it is a long process
-params = parameter_estimator.estimate_network_parameters()
+params = parameter_estimator.estimate_parameters(ref_point)
 print("Save parameters") # Adding some comments because it is a long process
-save_network_parameters(params, ps_network, '/home/timo/Data/LasVegasDesc/ps_results4_perio_year.h5')
+#save_network_parameters(params, ps_network, '/home/timo/Data/LasVegasDesc/ps_results3_perio_year.h5')
+save_point_data_to_csv("/home/timo/Data/LasVegasDesc2/psc_phases15.csv", "/home/timo/Data/LasVegasDesc2/psc_results15.csv", params)
 
 
 

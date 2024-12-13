@@ -375,8 +375,8 @@ class PSInfo:
             raise KeyError(f"Key {key} not found in PSNetwork")
 
 # Read the CSV file
-df_psc = pd.read_csv('/home/timo/Data/LasVegasDesc2/psc.csv')
-df_ps = pd.read_csv('/home/timo/Data/LasVegasDesc2/psc_phases15.csv')
+df_psc = pd.read_csv('/home/timo/Data/LasVegasDesc/psc.csv')
+df_ps = pd.read_csv('/home/timo/Data/LasVegasDesc/psc_phases15.csv')
 # Get the column names that are dates (skip the first 3 columns)
 date_columns = df_ps.columns[3:]
 

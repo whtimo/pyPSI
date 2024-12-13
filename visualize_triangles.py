@@ -19,7 +19,7 @@ with rasterio.open('/home/timo/Data/LasVegasDesc/resampled/TSX-1_0_2010-09-19.ti
 
 # Read points and triangles
 #points_df = pd.read_csv('points.csv')
-points_df = pd.read_csv('/home/timo/Data/LasVegasDesc/aps_psc.csv')
+points_df = pd.read_csv('/home/timo/Data/LasVegasDesc/psc.csv')
 # Rename the unnamed first column to 'point_id'
 points_df = points_df.rename(columns={points_df.columns[0]: 'point_id'})
 
@@ -29,15 +29,24 @@ triangles_df = pd.read_csv('/home/timo/Data/LasVegasDesc/triangulation_results.c
 # Create the plot
 plt.figure(figsize=(12, 8))
 
-# Plot SAR amplitude in dB scale with proper colormap
-amplitude_db = 20 * np.log10(amplitude + 1e-10) #manually added +1e-10 based on the debugging info Claude gave last time
-# Mask potential invalid values (zeros or very small values)
-amplitude_db = ma.masked_where(amplitude_db < -50, amplitude_db)
-
-plt.imshow(amplitude_db,
+plt.imshow(amplitude, #10 * np.log10(amplitude + 1e-10),
            cmap='gray',
-           aspect='equal',
-           extent=[0, amplitude.shape[1], amplitude.shape[0], 0])  # Correct image orientation
+           vmin=0, vmax=200.0)
+           #extent=[transform[2],
+           #       transform[2] + transform[0] * amplitude.shape[1],
+           #       transform[5] + transform[4] * amplitude.shape[0],
+           #       transform[5]])
+
+#Timo: to ensure compatibility between the displays for publication, I changed to the peviously used imshow
+# # Plot SAR amplitude in dB scale with proper colormap
+# amplitude_db = 20 * np.log10(amplitude + 1e-10) #manually added +1e-10 based on the debugging info Claude gave last time
+# # Mask potential invalid values (zeros or very small values)
+# amplitude_db = ma.masked_where(amplitude_db < -50, amplitude_db)
+#
+# plt.imshow(amplitude_db,
+#            cmap='gray',
+#            aspect='equal',
+#            extent=[0, amplitude.shape[1], amplitude.shape[0], 0])  # Correct image orientation
 
 # Plot triangles
 for _, triangle in triangles_df.iterrows():
@@ -57,7 +66,7 @@ for _, triangle in triangles_df.iterrows():
              [point3['line'].values[0], point1['line'].values[0]],
              'r-', linewidth=0.5, alpha=0.7)
 
-plt.colorbar(label='Amplitude [dB]')
+#plt.colorbar(label='Amplitude [dB]')
 plt.title('SAR Amplitude with Triangulation Overlay')
 plt.xlabel('Sample')
 plt.ylabel('Line')
@@ -67,4 +76,5 @@ plt.xlim(0, amplitude.shape[1])
 plt.ylim(amplitude.shape[0], 0)  # Reverse y-axis to match image coordinates
 
 plt.tight_layout()
-plt.show()
+plt.savefig('/home/timo/Data/LasVegasDesc/las_vegas_triangles.png', dpi=150, bbox_inches='tight')
+#plt.show()

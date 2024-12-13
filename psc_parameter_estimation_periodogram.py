@@ -361,7 +361,7 @@ class PSNetwork:
 
 # Read the CSV file
 #df = pd.read_csv('your_file.csv')
-df = pd.read_csv('/home/timo/Data/LasVegasDesc/aps_psc_phases3.csv')
+df = pd.read_csv('/home/timo/Data/LasVegasDesc/psc_phases.csv')
 
 # Get the column names that are dates (skip the first 3 columns)
 date_columns = df.columns[3:]
@@ -371,13 +371,13 @@ dates = [datetime.strptime(date, '%Y-%m-%d') for date in date_columns]
 
 print("Reading the network") # Adding some comments because it is a long process
 #ps_network = PSNetwork(dates, "/path/to/xml/files")
-ps_network = PSNetwork(dates, "/home/timo/Data/LasVegasDesc/topo", "/home/timo/Data/LasVegasDesc/triangulation_results3.csv", "/home/timo/Data/LasVegasDesc/aps_psc_phases3.csv")
+ps_network = PSNetwork(dates, "/home/timo/Data/LasVegasDesc/topo", "/home/timo/Data/LasVegasDesc/triangulation_results.csv", "/home/timo/Data/LasVegasDesc/psc_phases.csv")
 
 parameter_estimator = NetworkParameterEstimator(ps_network)
 print("Start parameter estimation") # Adding some comments because it is a long process
 params = parameter_estimator.estimate_network_parameters()
 print("Save parameters") # Adding some comments because it is a long process
-save_network_parameters(params, ps_network, '/home/timo/Data/LasVegasDesc/ps_results4_perio_year.h5')
+save_network_parameters(params, ps_network, '/home/timo/Data/LasVegasDesc/ps_results.h5')
 
 
 

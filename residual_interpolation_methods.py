@@ -1,86 +1,9 @@
 import numpy as np
-from scipy.interpolate import griddata, Rbf, NearestNDInterpolator
+from scipy.interpolate import griddata
+from scipy.interpolate import NearestNDInterpolator
+from scipy.interpolate import Rbf
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import RBF, WhiteKernel
-import h5py
-
-def prepare_point_data(points_dict):
-    """
-    Extract coordinates and residuals from points dictionary
-
-    Parameters:
-    -----------
-    points_dict: dict
-        Dictionary containing point information
-
-    Returns:
-    --------
-    samples: np.ndarray
-        Array of sample coordinates
-    lines: np.ndarray
-        Array of line coordinates
-    residuals: np.ndarray
-        2D array of residual differences, shape (n_points, n_residuals)
-    """
-    samples = []
-    lines = []
-    residuals = []
-
-    for point_info in points_dict.values():
-        samples.append(point_info['sample'])
-        lines.append(point_info['line'])
-        residuals.append(point_info['residual_difference'])
-
-    return (np.array(samples),
-            np.array(lines),
-            np.array(residuals))
-
-def load_path_parameters(filename='path_parameters.h5'):
-    """
-    Load path parameters from HDF5 file
-
-    Parameters:
-    -----------
-    filename: str
-        Path to the HDF5 file
-
-    Returns:
-    --------
-    dict:
-        Dictionary containing all path parameters and point information
-    """
-    import h5py
-
-    results = {}
-
-    with h5py.File(filename, 'r') as f:
-        params = f['path_parameters']
-
-        # Get all point IDs
-        point_ids = [pid.decode('utf-8') if isinstance(pid, bytes)
-                     else pid for pid in params['point_ids'][:]]
-
-        # Get reference point ID
-        results['reference_point_id'] = params.attrs['reference_point_id']
-
-        # Create points dictionary
-        results['points'] = {}
-        for i, point_id in enumerate(point_ids):
-            results['points'][point_id] = {
-                'sample': params['sample'][i],
-                'line': params['line'][i],
-                'height_difference': params['height_difference'][i],
-                'velocity_difference': params['velocity_difference'][i],
-                'residual_difference': params['residual_difference'][i]
-            }
-
-        # Store metadata
-        results['metadata'] = {
-            'creation_date': params.attrs['creation_date'],
-            'number_of_points': params.attrs['number_of_points']
-        }
-
-    return results
 
 def interpolate_phase_residuals_griddata(samples, lines, values, grid_size):
     """
@@ -193,6 +116,8 @@ def interpolate_phase_residuals_kriging(samples, lines, values, grid_size):
     return interpolated
 
 
+
+
 def interpolate_phase_residuals_natural_neighbor(samples, lines, values, grid_size):
     """
     Interpolate phase residuals using Natural Neighbor interpolation
@@ -224,30 +149,22 @@ def interpolate_phase_residuals_natural_neighbor(samples, lines, values, grid_si
 
     return interpolated
 
-data = load_path_parameters('/home/timo/Data/LasVegasDesc/ps_results3_psc_filt_year_results.h5')
-samples, lines, residuals = prepare_point_data(data['points'])
+
 
 # Example usage
-#samples = np.array([...])  # your sample coordinates
-#lines = np.array([...])    # your line coordinates
-#values = np.array([...])   # your phase residual values
-#grid_size = (1000, 1000)   # desired output grid size
-
-master_image_width = 10944  # Timo: add fixed size not based on min/max samples from the PSCs
-master_image_height = 6016
-values = residuals[:,0]
-grid_size = (master_image_width, master_image_height)
+samples = np.array([...])  # your sample coordinates
+lines = np.array([...])  # your line coordinates
+values = np.array([...])  # your phase residual values
+grid_size = (1000, 1000)  # desired output grid size
 
 # Using griddata
 interpolated_grids = interpolate_phase_residuals_griddata(samples, lines, values, grid_size)
 
 # Using RBF
-#interpolated_rbf = interpolate_phase_residuals_rbf(samples / 10, lines / 10, values, grid_size)
+interpolated_rbf = interpolate_phase_residuals_rbf(samples, lines, values, grid_size)
 
 # Using Kriging
-#interpolated_kriging = interpolate_phase_residuals_kriging(samples / 10, lines / 10, values, grid_size)
+interpolated_kriging = interpolate_phase_residuals_kriging(samples, lines, values, grid_size)
 
 # Using Natural Neighbor
 interpolated_nn = interpolate_phase_residuals_natural_neighbor(samples, lines, values, grid_size)
-
-print('end')

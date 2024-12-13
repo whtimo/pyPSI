@@ -243,48 +243,6 @@ def prepare_point_data(points_dict: Dict) -> Tuple[np.ndarray, np.ndarray, np.nd
             np.array(residuals))
 
 
-def create_output_grid(samples: np.ndarray,
-                       lines: np.ndarray,
-                       pixel_size: float = 1.0) -> Tuple[np.ndarray, np.ndarray, Affine]:
-    """
-    Create regular grid for interpolation
-
-    Parameters:
-    -----------
-    samples: np.ndarray
-        Sample coordinates
-    lines: np.ndarray
-        Line coordinates
-    pixel_size: float
-        Size of output pixels in original coordinate units
-
-    Returns:
-    --------
-    grid_x: np.ndarray
-        Regular grid x coordinates
-    grid_y: np.ndarray
-        Regular grid y coordinates
-    transform: Affine
-        Affine transform for the output raster
-    """
-    # Calculate grid extent
-    x_min, x_max = samples.min(), samples.max()
-    y_min, y_max = lines.min(), lines.max()
-
-    # Calculate number of pixels
-    width = int(np.ceil((x_max - x_min) / pixel_size))
-    height = int(np.ceil((y_max - y_min) / pixel_size))
-
-    # Create regular grid
-    grid_x, grid_y = np.mgrid[x_min:x_max:width * 1j,
-                     y_min:y_max:height * 1j]
-
-    # Create affine transform for the output raster
-    transform = Affine.translation(x_min, y_min) * Affine.scale(pixel_size, pixel_size)
-
-    return grid_x, grid_y, transform
-
-
 def interpolate_residuals(samples: np.ndarray,
                           lines: np.ndarray,
                           residuals: np.ndarray,
@@ -319,7 +277,6 @@ def interpolate_residuals(samples: np.ndarray,
 
 
 def save_interpolated_grid(interpolated_data: np.ndarray,
-                           transform: Affine,
                            output_path: Path,
                            epoch: int):
     """
@@ -329,14 +286,12 @@ def save_interpolated_grid(interpolated_data: np.ndarray,
     -----------
     interpolated_data: np.ndarray
         Interpolated values
-    transform: Affine
-        Affine transform for the raster
     output_path: Path
         Path to save the output
     epoch: int
         Epoch number for filename
     """
-    height, width = interpolated_data.shape
+    width, height = interpolated_data.shape #Timo: Changes to make fit to output image
 
     with rasterio.open(
             output_path / f'residual_epoch_{epoch:03d}.tif',
@@ -346,19 +301,30 @@ def save_interpolated_grid(interpolated_data: np.ndarray,
             width=width,
             count=1,
             dtype=np.float32,
-            crs=None,  # Set your CRS if applicable
-            transform=transform,
+            #crs=None,  # Set your CRS if applicable
+            #transform=transform,
     ) as dst:
-        dst.write(interpolated_data.astype(np.float32), 1)
+        buffer = np.zeros((height, width))
+
+        for r in range(height):
+            for c in range(width):
+                val = interpolated_data[c, r]
+                buffer[r, c] = val
+        dst.write(buffer.astype(np.float32), 1) #The original does confuse x, y and stretches in the wrong direction. Fix to fit into what we would exprect (PS: original Claude output is correct but with x and y exchanged)
+        #dst.write(interpolated_data.astype(np.float32), 1)
 
 
 
 
 logger = setup_logging()
 
+master_image_width = 10944  # Timo: add fixed size not based on min/max samples from the PSCs
+master_image_height = 6016
+grid_size = (master_image_width, master_image_height)
+
 # Set paths
-input_file = Path('path_parameters.h5')
-output_dir = Path('interpolated_residuals')
+input_file = Path('/home/timo/Data/LasVegasDesc2/ps_results_path2.h5')
+output_dir = Path('/home/timo/Data/LasVegasDesc2/aps3')
 output_dir.mkdir(exist_ok=True)
 
 # Load data
@@ -367,10 +333,6 @@ data = load_path_parameters(input_file)
 
 # Prepare point data
 samples, lines, residuals = prepare_point_data(data['points'])
-
-# Create output grid
-logger.info("Creating output grid")
-grid_x, grid_y, transform = create_output_grid(samples, lines)
 
 # Process each epoch
 n_epochs = residuals.shape[1]
@@ -383,13 +345,11 @@ for epoch in range(n_epochs):
     epoch_residuals = residuals[:, epoch]
 
     # Interpolate
-    interpolated = interpolate_residuals(
-        samples, lines, epoch_residuals, grid_x, grid_y
-    )
+    interpolated_nn = interpolate_phase_residuals_natural_neighbor(lines, samples, epoch_residuals, grid_size)
 
     # Save result
     save_interpolated_grid(
-        interpolated, transform, output_dir, epoch
+        interpolated_nn, output_dir, epoch
     )
 
 logger.info("Processing completed")

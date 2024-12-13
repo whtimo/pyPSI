@@ -35,9 +35,7 @@ def process_phase_residuals(input_dir, output_dir, spatial_filter_size):
             phase_stack[i] = src.read(1)
             profile = src.profile  # Save profile for writing output
 
-    # Spatial filtering: Apply Gaussian low-pass filter to each image
-    for i in range(n_images):
-        phase_stack[i] = gaussian_filter(phase_stack[i], sigma=spatial_filter_size)
+    #Timo: Changed as first we have the high-pass filter
 
     # Temporal filtering: High-pass filter in time domain
     # Calculate temporal mean
@@ -46,15 +44,28 @@ def process_phase_residuals(input_dir, output_dir, spatial_filter_size):
     # Remove temporal mean (high-pass filtering)
     phase_stack = phase_stack - temporal_mean[np.newaxis, :, :]
 
+    # Spatial filtering: Apply Gaussian low-pass filter to each image
+    for i in range(n_images):
+        print(f'Processing image {i} of {n_images}') #Timo: Add some information for long time processing
+        phase_stack[i] = gaussian_filter(phase_stack[i], sigma=spatial_filter_size)
+
+
+
     # Wrap phases between -π and π
     wrapped_phases = np.angle(np.exp(1j * phase_stack))
 
     # Save processed images
-    profile.update(dtype=rasterio.float32)
+    #profile.update(dtype=rasterio.float32)
 
     for i, tiff_file in enumerate(tiff_files):
         output_path = os.path.join(output_dir, f"processed_{tiff_file}")
-        with rasterio.open(output_path, 'w', **profile) as dst:
+        with rasterio.open(output_path, 'w',
+                           driver='GTiff',
+                           height=height,
+                           width=width,
+                           count=1,
+                           dtype=np.float32,
+        ) as dst:
             dst.write(wrapped_phases[i].astype(np.float32), 1)
 
 # Example usage:
@@ -63,3 +74,9 @@ def process_phase_residuals(input_dir, output_dir, spatial_filter_size):
 #     output_dir='path/to/output/directory',
 #     spatial_filter_size=5.0
 # )
+
+process_phase_residuals(
+    input_dir='/home/timo/Data/LasVegasDesc2/aps3',
+    output_dir='/home/timo/Data/LasVegasDesc2/aps_filtered8',
+    spatial_filter_size=20.0
+)

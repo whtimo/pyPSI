@@ -350,13 +350,13 @@ path_parameters = extract_path_parameters(G, paths, heights, velocities)
 """
 
 print("Load data")
-params = load_network_parameters('/home/timo/Data/LasVegasDesc/ps_results3_perio_year.h5')
-df = pd.read_csv('/home/timo/Data/LasVegasDesc/aps_psc3.csv')
+params = load_network_parameters('/home/timo/Data/LasVegasDesc/ps_results.h5')
+df = pd.read_csv('/home/timo/Data/LasVegasDesc/psc.csv')
 # Rename the unnamed first column to 'point_id'
 df = df.rename(columns={df.columns[0]: 'point_id'})
 # Extract coordinates
 ps_points = df[['sample', 'line']].values
-reference_point = load_reference_point('/home/timo/Data/LasVegasDesc/ref_point3_year.txt')
+reference_point = load_reference_point('/home/timo/Data/LasVegasDesc/ref_point.txt')
 
 edges, temporal_coherence, heights, velocities, residuals = convert_network_parameters(params)
 
@@ -367,6 +367,6 @@ paths, distances = find_optimal_paths_to_reference(G, reference_point)
 print("Extract path parameters")
 path_parameters = extract_path_parameters(G, paths, heights, velocities, residuals)
 print('Save results')
-save_path_parameters(path_parameters, df, reference_point, '/home/timo/Data/LasVegasDesc/ps_results3_psc_filt_year_results.h5')
+save_path_parameters(path_parameters, df, reference_point, '/home/timo/Data/LasVegasDesc/ps_results_path.h5')
 
 

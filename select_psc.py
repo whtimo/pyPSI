@@ -72,10 +72,10 @@ if __name__ == "__main__":
     # window_y = 5  # Example window size in y direction
 
     input_path = "/home/timo/Data/LasVegasDesc/amplitude_dispersion.tif"
-    output_path = "/home/timo/Data/LasVegasDesc/psc.csv"
-    threshold = 0.15
-    window_x = 50
-    window_y = 50
+    output_path = "/home/timo/Data/LasVegasDesc/ps.csv"
+    threshold = 0.2
+    window_x = 2
+    window_y = 2
 
     results = process_amplitude_dispersion(
         input_path,

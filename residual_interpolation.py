@@ -323,8 +323,8 @@ master_image_height = 6016
 grid_size = (master_image_width, master_image_height)
 
 # Set paths
-input_file = Path('/home/timo/Data/LasVegasDesc2/ps_results_path2.h5')
-output_dir = Path('/home/timo/Data/LasVegasDesc2/aps3')
+input_file = Path('/home/timo/Data/LasVegasDesc/ps_results_path.h5')
+output_dir = Path('/home/timo/Data/LasVegasDesc/aps')
 output_dir.mkdir(exist_ok=True)
 
 # Load data

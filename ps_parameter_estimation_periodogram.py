@@ -8,7 +8,7 @@ from pathlib import Path
 import h5py
 
 
-def save_point_data_to_csv(input_csv, output_csv, params, point_ids, edge_ids):
+def save_point_data_to_csv(input_csv, output_csv, params):
     """
     Save point data to CSV including id, sample, line, height errors, velocities, and temporal coherence.
 
@@ -25,20 +25,19 @@ def save_point_data_to_csv(input_csv, output_csv, params, point_ids, edge_ids):
     edge_ids : array-like
         Array of edge IDs for velocities
     """
-    import pandas as pd
-    import numpy as np
+
 
     # Read the input CSV file
     df = pd.read_csv(input_csv)
-
+    ids = df.iloc[:, 0]
     # Create arrays for the parameters
-    height_errors_array = np.array([params['height_errors'][point_id] for point_id in point_ids])
-    velocities_array = np.array([params['velocities'][point_id] for point_id in edge_ids])
-    temporal_coherences_array = np.array([params['temporal_coherences'][point_id] for point_id in point_ids])
+    height_errors_array = np.array([params['height_errors'][point_id] for point_id in ids])
+    velocities_array = np.array([params['velocities'][point_id] for point_id in ids])
+    temporal_coherences_array = np.array([params['temporal_coherences'][point_id] for point_id in ids])
 
     # Create a new dataframe with the required columns
     output_df = pd.DataFrame({
-        'id': df.index,
+        'id': df.iloc[:, 0],
         'sample': df['sample'],
         'line': df['line'],
         'height_errors': height_errors_array,
@@ -383,7 +382,8 @@ date_columns = df_ps.columns[3:]
 # Convert the date strings to datetime objects and store in a list
 dates = [datetime.strptime(date, '%Y-%m-%d') for date in date_columns]
 
-ref_point = find_matching_point_index('/home/timo/Data/LasVegasDesc/ref_point.txt', '/home/timo/Data/LasVegasDesc/ps.csv', '/home/timo/Data/LasVegasDesc/ps_phases.csv')
+ref_point = 0
+#ref_point = find_matching_point_index('/home/timo/Data/LasVegasDesc/ref_point.txt', '/home/timo/Data/LasVegasDesc/ps.csv', '/home/timo/Data/LasVegasDesc/ps_phases.csv')
 #print("Reading the network") # Adding some comments because it is a long process
 #ps_network = PSNetwork(dates, "/path/to/xml/files")
 ps_info = PSInfo(dates, "/home/timo/Data/LasVegasDesc/topo",  "/home/timo/Data/LasVegasDesc/ps_phases.csv")

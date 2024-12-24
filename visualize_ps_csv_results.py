@@ -84,7 +84,9 @@ def load_csv_data(velocity_csv):
     return results
 
 
-def plot_velocities_on_sar(results, ref_point, sar_image_path,
+def plot_velocities_on_sar(results, ref_point,
+                           temporal_coherence_threshold,
+                           sar_image_path,
                            output_path=None,
                            cmap='RdYlBu_r',
                            marker_size=20,
@@ -118,9 +120,11 @@ def plot_velocities_on_sar(results, ref_point, sar_image_path,
     velocities = []
 
     for point_id, point_data in results['points'].items():
-        samples.append(point_data['sample'])
-        lines.append(point_data['line'])
-        velocities.append(point_data['velocity'])
+        temp_coh = point_data['temporal_coherence']
+        if temp_coh >= temporal_coherence_threshold:
+            samples.append(point_data['sample'])
+            lines.append(point_data['line'])
+            velocities.append(point_data['velocity'])
 
     samples = np.array(samples)
     lines = np.array(lines)
@@ -208,6 +212,7 @@ results = load_csv_data('/home/timo/Data/LasVegasDesc/ps_results.csv')
 plot_velocities_on_sar(
     results,
     ref_point,
+    0.8,
     sar_image_path='/home/timo/Data/LasVegasDesc/resampled/TSX-1_0_2010-09-19.tiff',
     output_path='/home/timo/Data/LasVegasDesc/ps_velocity_map.png',
     cmap='RdYlBu_r',

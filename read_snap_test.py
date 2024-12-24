@@ -1,11 +1,19 @@
-from snapista import Registry
-import xarray as xr
+import snappy
+from snappy import ProductIO
 
-# Read the product
-reader = Registry.ReadOp()
-reader.file = 'path/to/your/file.dim'
-product = reader.execute()
+# Read the .dim file
+product = ProductIO.readProduct('path/to/your/file.dim')
 
-# Convert to xarray dataset
-ds = xr.open_dataset(product)
+# Get the band you want to work with
+band = product.getBand('band_name')  # e.g., 'Amplitude_VV', 'Intensity_VH'
+
+# Get the width and height
+width = product.getSceneRasterWidth()
+height = product.getSceneRasterHeight()
+
+# Convert band to numpy array
+import numpy as np
+band_data = np.zeros(width * height, dtype=np.float32)
+band.readPixels(0, 0, width, height, band_data)
+band_data = band_data.reshape(height, width)
 

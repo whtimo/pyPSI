@@ -1,5 +1,5 @@
-import snappy
-from snappy import ProductIO
+import esa_snappy
+from snappy import Product
 
 # Read the .dim file
 product = ProductIO.readProduct('path/to/your/file.dim')

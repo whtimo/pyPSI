@@ -73,9 +73,9 @@ if __name__ == "__main__":
 
     input_path = "/home/timo/Data/LVS1_snap/amplitude_dispersion.tif"
     output_path = "/home/timo/Data/LVS1_snap/psc.csv"
-    threshold = 0.2
-    window_x = 50
-    window_y = 50
+    threshold = 0.15
+    window_x = 20
+    window_y = 10
 
     results = process_amplitude_dispersion(
         input_path,

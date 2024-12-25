@@ -67,78 +67,62 @@ def calculate_amplitude_dispersion_snap(
     }
 
     # Initialize arrays for line-by-line processing
-    sum_amplitude = np.zeros(width, dtype=np.float32)
-    sum_squared_amplitude = np.zeros(width, dtype=np.float32)
-    amplitude_dispersion = np.zeros(width, dtype=np.float32)
+    sum_amplitude = np.zeros((height, width), dtype=np.float32)
+    sum_squared_amplitude = np.zeros((height, width), dtype=np.float32)
+    amplitude_dispersion = np.zeros((height, width), dtype=np.float32)
 
-    # Create output file
+    for band_name in intensity_bands:
+        print("processing band", band_name)
+        band = product.getBand(band_name)
+        line_data = np.zeros((height, width), dtype=np.float32)
+        band.readPixels(0, 0, width, height, line_data)
+        amplitude = np.sqrt(line_data)
+
+        # Update running sums
+        sum_amplitude += amplitude
+        sum_squared_amplitude += amplitude * amplitude
+
+    # Calculate statistics
+    mean_amplitude = sum_amplitude / n_images
+
+    # Calculate variance
+    variance = (sum_squared_amplitude / n_images) - (mean_amplitude * mean_amplitude)
+    variance = np.maximum(variance, 0)  # Ensure non-negative variance
+    std_amplitude = np.sqrt(variance)
+
+    # Calculate amplitude dispersion for current line
+    valid_pixels = mean_amplitude > 0
+    amplitude_dispersion.fill(np.nan)
+    amplitude_dispersion[valid_pixels] = std_amplitude[valid_pixels] / mean_amplitude[valid_pixels]
+
+    # Write output
+    logger.info("Writing output file...")
     with rasterio.open(output_file, 'w', **profile) as dst:
-        # Process line by line
-        for y in range(height):
-            if y % 100 == 0:
-                logger.info(f"Processing line {y}/{height}")
+        dst.write(amplitude_dispersion.astype(np.float32), 1)
 
-            # Reset line sums
-            sum_amplitude.fill(0)
-            sum_squared_amplitude.fill(0)
-
-            # Process each intensity band for current line
-            for band_name in intensity_bands:
-                band = product.getBand(band_name)
-                line_data = np.zeros(width, dtype=np.float32)
-                band.readPixels(0, y, width, 1, line_data)
-
-                # Update running sums
-                amplitude = np.sqrt(line_data)  # Convert intensity to amplitude
-                sum_amplitude += amplitude
-                sum_squared_amplitude += amplitude * amplitude
-
-            # Calculate statistics for current line
-            mean_amplitude = sum_amplitude / n_images
-
-            # Calculate variance
-            variance = (sum_squared_amplitude / n_images) - (mean_amplitude * mean_amplitude)
-            variance = np.maximum(variance, 0)  # Ensure non-negative variance
-            std_amplitude = np.sqrt(variance)
-
-            # Calculate amplitude dispersion for current line
-            valid_pixels = mean_amplitude > 0
-            amplitude_dispersion.fill(np.nan)
-            amplitude_dispersion[valid_pixels] = std_amplitude[valid_pixels] / mean_amplitude[valid_pixels]
-
-            # Write line to output file
-            dst.write(amplitude_dispersion.reshape(1, -1), 1, window=((y, y + 1), (0, width)))
-
-    # Calculate final statistics
-    logger.info("Calculating final statistics...")
-    with rasterio.open(output_file) as src:
-        amplitude_dispersion_full = src.read(1)
-        valid_da = amplitude_dispersion_full[~np.isnan(amplitude_dispersion_full)]
-        ps_candidates = np.sum(valid_da < ps_threshold)
-        valid_pixels = np.sum(~np.isnan(amplitude_dispersion_full))
+    # Calculate statistics
+    valid_da = amplitude_dispersion[~np.isnan(amplitude_dispersion)]
+    ps_candidates = np.sum(valid_da < ps_threshold)
 
     stats = {
-        'min_da': float(np.nanmin(valid_da)),
-        'max_da': float(np.nanmax(valid_da)),
-        'mean_da': float(np.nanmean(valid_da)),
-        'median_da': float(np.nanmedian(valid_da)),
+        'min_da': float(np.nanmin(amplitude_dispersion)),
+        'max_da': float(np.nanmax(amplitude_dispersion)),
+        'mean_da': float(np.nanmean(amplitude_dispersion)),
+        'median_da': float(np.nanmedian(amplitude_dispersion)),
         'ps_candidates': int(ps_candidates),
-        'total_valid_pixels': int(valid_pixels),
+        'total_valid_pixels': int(np.sum(valid_pixels)),
         'processed_images': n_images
     }
 
     logger.info("Processing completed successfully")
     logger.info(f"Found {ps_candidates} PS candidates (DA < {ps_threshold})")
 
-    # Close the product
-    product.dispose()
-
     return stats
 
 
 if __name__ == "__main__":
     # Example usage
-    input_dim_file = '/home/timo/Data/LVS1_snap/deburst/S1A_IW_SLC__1SDV_20230702T134404_20230702T134432_049245_05EBEA_A4DF_Orb_Stack_esd_deb.dim'
+    input_dim_file = '/home/timo/Data/LVS1_snap/subset/subset_0_of_S1A_IW_SLC__1SDV_20230702T134404_20230702T134432_049245_05EBEA_A4DF_Orb_Stack_esd_deb.dim'
     output_file = '/home/timo/Data/LVS1_snap/amplitude_dispersion.tif'
 
     try:

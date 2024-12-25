@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import rasterio
 import esa_snappy
 
-input_dim_file = '/home/timo/Data/LVS1_snap/deburst/S1A_IW_SLC__1SDV_20230702T134404_20230702T134432_049245_05EBEA_A4DF_Orb_Stack_esd_deb.dim'
+input_dim_file = '/home/timo/Data/LVS1_snap/subset/subset_0_of_S1A_IW_SLC__1SDV_20230702T134404_20230702T134432_049245_05EBEA_A4DF_Orb_Stack_esd_deb.dim'
 
 product = esa_snappy.ProductIO.readProduct(input_dim_file)
 
@@ -59,5 +59,5 @@ plt.xlabel('Range [pixels]')
 plt.ylabel('Azimuth [pixels]')
 plt.legend()
 #plt.grid(True)
-#plt.savefig('/home/timo/Data/LVS1_snap/las_vegas_s1_psc.png', dpi=150, bbox_inches='tight')
-plt.show()
+plt.savefig('/home/timo/Data/LVS1_snap/las_vegas_s1_psc.png', dpi=150, bbox_inches='tight')
+#plt.show()

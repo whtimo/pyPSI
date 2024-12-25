@@ -1,10 +1,6 @@
 import sys
 import numpy as np
-
-#import jpy
 sys.path.append('/home/timo/.snap/snap-python')
-#java_home_dir = '/usr/lib/jvm/java-21-openjdk-amd64/lib/server'
-#import jpy
 import esa_snappy
 
 # Read the .dim file

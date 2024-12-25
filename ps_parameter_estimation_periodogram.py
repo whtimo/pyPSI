@@ -383,7 +383,7 @@ date_columns = df_ps.columns[3:]
 dates = [datetime.strptime(date, '%Y-%m-%d') for date in date_columns]
 
 #ref_point = 0
-ref_point = find_matching_point_index('/home/timo/Data/LasVegasDesc/ref_point.txt', '/home/timo/Data/LasVegasDesc/ps.csv', '/home/timo/Data/LasVegasDesc/ps_phases.csv')
+ref_point = find_matching_point_index('/home/timo/Data/LasVegasDesc/ref_point.txt', '/home/timo/Data/LasVegasDesc/psc.csv', '/home/timo/Data/LasVegasDesc/ps.csv')
 #print("Reading the network") # Adding some comments because it is a long process
 #ps_network = PSNetwork(dates, "/path/to/xml/files")
 ps_info = PSInfo(dates, "/home/timo/Data/LasVegasDesc/topo",  "/home/timo/Data/LasVegasDesc/ps_phases.csv")

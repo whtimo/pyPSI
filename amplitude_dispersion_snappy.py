@@ -61,9 +61,9 @@ def calculate_amplitude_dispersion_snap(
         'width': width,
         'count': 1,
         'dtype': 'float32',
-        'nodata': np.nan,
-        'crs': product.getSceneCRS().toString(),  # Convert CRS to string
-        'transform': product.getSceneGeoCoding().getImageToMapTransform()  # Get transformation
+        'nodata': np.nan #,
+        #'crs': product.getSceneCRS().toString(),  # Convert CRS to string
+        #'transform': product.getSceneGeoCoding().getImageToMapTransform()  # Get transformation
     }
 
     # Initialize arrays for line-by-line processing
@@ -138,8 +138,8 @@ def calculate_amplitude_dispersion_snap(
 
 if __name__ == "__main__":
     # Example usage
-    input_dim_file = "/path/to/your/stack.dim"
-    output_file = "/path/to/your/amplitude_dispersion.tif"
+    input_dim_file = '/home/timo/Data/LVS1_snap/deburst/S1A_IW_SLC__1SDV_20230702T134404_20230702T134432_049245_05EBEA_A4DF_Orb_Stack_esd_deb.dim'
+    output_file = '/home/timo/Data/LVS1_snap/amplitude_dispersion.tif'
 
     try:
         stats = calculate_amplitude_dispersion_snap(input_dim_file, output_file)

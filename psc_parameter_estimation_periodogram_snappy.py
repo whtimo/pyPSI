@@ -291,18 +291,8 @@ class PSNetwork:
             }
             edge_counter += 1
 
-    def _extract_master_slave_dates_from_band_name(bandname: str):
 
-        # Regular expression to find ISO date pattern before .tiff
-        # date_pattern = r'\d{4}-\d{2}-\d{2}(?=\.tiff)'
-        slave_date_string = bandname[-9:]
-        slave_date = datetime.strptime(slave_date_string, "%d%b%Y")
-        master_date_string = bandname[-18,-9:]
-        master_date = datetime.strptime(master_date_string, "%d%b%Y")
-
-        return (master_date, slave_date)
-
-    def _process_dim_files(self):
+    def _process_dim_file(self):
         # Speed of light in meters per second
         SPEED_OF_LIGHT = 299792458.0
 
@@ -314,12 +304,10 @@ class PSNetwork:
 
         # Get intensity bands
         band_names = product.getBandNames()
-
         phase_bands = [name for name in band_names if name.startswith('Phase')]
 
         if not phase_bands:
             raise ValueError("No phase bands found in the product")
-
 
         n_dates = len(phase_bands)
         self._temporal_baselines = np.zeros(n_dates)
@@ -327,11 +315,23 @@ class PSNetwork:
         self._range_distances = np.zeros(n_dates)
         self._incidence_angles = np.zeros(n_dates)
         self._wavelength = 0
-        
-        # Process each XML file
-        for phase_band in phase_bands:
-            master_date, slave_date = self._extract_master_slave_dates_from_band_name(phase_band)
 
+        # Get metadata
+        metadata = product.getMetadataRoot().getElement('Abstracted_Metadata')
+
+        # Set wavelength (only needs to be set once)
+        radar_frequency = float(metadata.getAttributeString('radar_frequency'))
+        self._wavelength = SPEED_OF_LIGHT / (radar_frequency * 1e9)  # Convert GHz to Hz
+
+        # Process each phase band
+        for i, band_name in enumerate(phase_bands):
+            # Get band-specific metadata
+            self._temporal_baselines[i] = float(metadata.getAttributeString('temporal_baseline'))
+            self._perpendicular_baselines[i] = float(metadata.getAttributeString('perpendicular_baseline'))
+            self._range_distances[i] = float(metadata.getAttributeString('slant_range_to_first_pixel'))
+            self._incidence_angles[i] = float(metadata.getAttributeString('incidence_angle'))
+
+        product.dispose()
 
     def __getitem__(self, key: str) -> Union[np.ndarray, dict]:
         """Allow dictionary-like access to the network parameters"""

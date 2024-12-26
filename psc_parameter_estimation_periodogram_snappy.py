@@ -326,7 +326,8 @@ class PSNetwork:
         self._perpendicular_baselines = np.zeros(n_dates)
         self._range_distances = np.zeros(n_dates)
         self._incidence_angles = np.zeros(n_dates)
-
+        self._wavelength = 0
+        
         # Process each XML file
         for phase_band in phase_bands:
             master_date, slave_date = self._extract_master_slave_dates_from_band_name(phase_band)

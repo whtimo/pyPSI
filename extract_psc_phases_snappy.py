@@ -3,20 +3,17 @@ sys.path.append('/home/timo/.snap/snap-python')
 import esa_snappy
 import pandas as pd
 import numpy as np
-import rasterio
-import os
-from pathlib import Path
 from datetime import datetime
-import re
-
 
 def extract_date_from_band_name(bandname: str) -> str:
 
     # Regular expression to find ISO date pattern before .tiff
     #date_pattern = r'\d{4}-\d{2}-\d{2}(?=\.tiff)'
-    date_str = bandname[-9:]
-    
+    date_string = bandname[-9:]
+    parsed_date = datetime.strptime(date_string, "%d%b%Y")
+    iso_date = parsed_date.strftime("%Y-%m-%d")
 
+    return iso_date
 
 def read_complex_phase_snappy(product, band_name: str, width : int, height: int, pixel_coords: np.ndarray) -> np.ndarray:
 

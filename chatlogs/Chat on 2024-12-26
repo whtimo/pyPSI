@@ -21,3 +21,95 @@ This code uses:
 - `strftime()` to format the date into ISO format using `%Y-%m-%d`
 
 The result will be "2023-07-02".
+
+
+> I am working on InSAR software in Python3. I have a stack of interferograms in the BEAM-DIMAP format by ESA snap. I am using the esa_snappy library to access the data. Please find below the code example I have so far
+
+<<<
+  def _process_dim_file(self):
+        # Speed of light in meters per second
+        SPEED_OF_LIGHT = 299792458.0
+
+        product = esa_snappy.ProductIO.readProduct(input_dim_file)
+
+        # Get dimensions
+        width = product.getSceneRasterWidth()
+        height = product.getSceneRasterHeight()
+
+        # Get intensity bands
+        band_names = product.getBandNames()
+
+        phase_bands = [name for name in band_names if name.startswith('Phase')]
+
+        if not phase_bands:
+            raise ValueError("No phase bands found in the product")
+
+
+        n_dates = len(phase_bands)
+        self._temporal_baselines = np.zeros(n_dates)
+        self._perpendicular_baselines = np.zeros(n_dates)
+        self._range_distances = np.zeros(n_dates)
+        self._incidence_angles = np.zeros(n_dates)
+        self._wavelength = 0
+        
+>>>
+
+So, for each band we should set the temporal_baseline, perpendicular_baseline, range_distance, and incidence_angle and the wavelength needs to be set only once as it will be the same for all bands. The required information can be found in the metadata. All can be found in the Abstracted_Metadata. Can you give me a code example on how to do that? Please only show me the code and do not run it in the code interpreter.
+
+Here's the code example to extract the metadata from BEAM-DIMAP format using esa_snappy:
+
+```python
+def _process_dim_file(self):
+    # Speed of light in meters per second
+    SPEED_OF_LIGHT = 299792458.0
+
+    product = esa_snappy.ProductIO.readProduct(input_dim_file)
+
+    # Get dimensions
+    width = product.getSceneRasterWidth()
+    height = product.getSceneRasterHeight()
+
+    # Get intensity bands
+    band_names = product.getBandNames()
+    phase_bands = [name for name in band_names if name.startswith('Phase')]
+
+    if not phase_bands:
+        raise ValueError("No phase bands found in the product")
+
+    n_dates = len(phase_bands)
+    self._temporal_baselines = np.zeros(n_dates)
+    self._perpendicular_baselines = np.zeros(n_dates)
+    self._range_distances = np.zeros(n_dates)
+    self._incidence_angles = np.zeros(n_dates)
+    self._wavelength = 0
+
+    # Get metadata
+    metadata = product.getMetadataRoot().getElement('Abstracted_Metadata')
+    
+    # Set wavelength (only needs to be set once)
+    radar_frequency = float(metadata.getAttributeString('radar_frequency'))
+    self._wavelength = SPEED_OF_LIGHT / (radar_frequency * 1e9)  # Convert GHz to Hz
+
+    # Process each phase band
+    for i, band_name in enumerate(phase_bands):
+        # Get band-specific metadata
+        self._temporal_baselines[i] = float(metadata.getAttributeString('temporal_baseline'))
+        self._perpendicular_baselines[i] = float(metadata.getAttributeString('perpendicular_baseline'))
+        self._range_distances[i] = float(metadata.getAttributeString('slant_range_to_first_pixel'))
+        self._incidence_angles[i] = float(metadata.getAttributeString('incidence_angle'))
+
+    product.dispose()
+```
+
+Note: The exact attribute names in the metadata might vary depending on your specific SNAP version and processing history. Common variations for these attributes might be:
+- 'temporal_baseline' or 'DAYS'
+- 'perpendicular_baseline' or 'PERP_BASELINE'
+- 'slant_range_to_first_pixel' or 'slant_range_time'
+- 'incidence_angle' or 'incident_angle'
+
+You might need to adjust the attribute names according to your specific metadata structure. You can print the available attributes using:
+```python
+metadata_list = metadata.getAttributeNames()
+for attr in metadata_list:
+    print(attr)
+```

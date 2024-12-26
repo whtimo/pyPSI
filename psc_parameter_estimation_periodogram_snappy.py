@@ -298,18 +298,8 @@ class PSNetwork:
 
         product = esa_snappy.ProductIO.readProduct(input_dim_file)
 
-        # Get dimensions
-        width = product.getSceneRasterWidth()
-        height = product.getSceneRasterHeight()
 
-        # Get intensity bands
-        band_names = product.getBandNames()
-        phase_bands = [name for name in band_names if name.startswith('Phase')]
-
-        if not phase_bands:
-            raise ValueError("No phase bands found in the product")
-
-        n_dates = len(phase_bands)
+        n_dates = len(dates)
         self._temporal_baselines = np.zeros(n_dates)
         self._perpendicular_baselines = np.zeros(n_dates)
         self._range_distances = np.zeros(n_dates)
@@ -321,15 +311,20 @@ class PSNetwork:
 
         # Set wavelength (only needs to be set once)
         radar_frequency = float(metadata.getAttributeString('radar_frequency'))
-        self._wavelength = SPEED_OF_LIGHT / (radar_frequency * 1e9)  # Convert GHz to Hz
+        self._wavelength = SPEED_OF_LIGHT / (radar_frequency * 1e6)  # Convert GHz to Hz # Timo: Actually it is given in MHz, so edited that
+
+        baselines = metadata.getElement('Baselines')
+        master_bl = baselines.getElementAt(0)
 
         # Process each phase band
-        for i, band_name in enumerate(phase_bands):
+        for i, date in enumerate(dates): #Timo: sorting has to be based on the dates used in the CSV file
             # Get band-specific metadata
-            self._temporal_baselines[i] = float(metadata.getAttributeString('temporal_baseline'))
-            self._perpendicular_baselines[i] = float(metadata.getAttributeString('perpendicular_baseline'))
+            snappy_date = date.strftime("%d%b%Y")
+            base_elem = master_bl.getElement("Secondary_"+snappy_date)
+            self._temporal_baselines[i] = -float(base_elem.getAttributeString('Temp Baseline')) # Timo: to me it seems that this should be inverted.
+            self._perpendicular_baselines[i] = float(base_elem.getAttributeString('Perp Baseline'))
             self._range_distances[i] = float(metadata.getAttributeString('slant_range_to_first_pixel'))
-            self._incidence_angles[i] = float(metadata.getAttributeString('incidence_angle'))
+            self._incidence_angles[i] = (float(metadata.getAttributeString('incidence_near')) + float(metadata.getAttributeString('incidence_far'))) / 2
 
         product.dispose()
 
@@ -353,7 +348,7 @@ class PSNetwork:
 # Read the CSV file
 #df = pd.read_csv('your_file.csv')
 df = pd.read_csv('/home/timo/Data/LVS1_snap/psc_phases.csv')
-input_dim_file = '/home/timo/Data/LVS1_snap/subset/subset_0_of_S1A_IW_SLC__1SDV_20230702T134404_20230702T134432_049245_05EBEA_A4DF_Orb_Stack_esd_deb.dim'
+input_dim_file = '/home/timo/Data/LVS1_snap/topo_subset/subset_0_of_S1A_IW_SLC__1SDV_20230702T134404_20230702T134432_049245_05EBEA_A4DF_Orb_Stack_esd_deb_ifg.dim'
 
 # Get the column names that are dates (skip the first 3 columns)
 date_columns = df.columns[3:]

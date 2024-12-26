@@ -64,12 +64,17 @@ def extract_ps_phases(ps_csv_path: str,
 
     n_images = len(phase_bands)
 
+    dates_bands = []
     # Extract phase values for each interferogram
     for phase_band in phase_bands:
 
         # Extract date from filename
         date = extract_date_from_band_name(phase_band)
+        dates_bands.append((date, phase_band))
 
+    sorted_dates_bands = sorted(dates_bands, key=lambda date_band: date_band[0])
+
+    for date, phase_band in sorted_dates_bands:
         # Read phase values
         phases = read_complex_phase_snappy(product, phase_band, width, height, pixel_coords)
 

@@ -77,7 +77,7 @@ def process_phase_residuals(input_dir, output_dir, spatial_filter_size):
 # )
 
 process_phase_residuals(
-    input_dir='/home/timo/Data/LasVegasDesc/aps',
-    output_dir='/home/timo/Data/LasVegasDesc/aps_filtered',
+    input_dir='/home/timo/Data/LVS1_snap/aps',
+    output_dir='/home/timo/Data/LVS1_snap/aps_filtered',
     spatial_filter_size=200.0
 )

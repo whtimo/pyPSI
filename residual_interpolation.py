@@ -318,13 +318,13 @@ def save_interpolated_grid(interpolated_data: np.ndarray,
 
 logger = setup_logging()
 
-master_image_width = 10944  # Timo: add fixed size not based on min/max samples from the PSCs
-master_image_height = 6016
+master_image_width = 6000  # Timo: add fixed size not based on min/max samples from the PSCs
+master_image_height = 2700
 grid_size = (master_image_width, master_image_height)
 
 # Set paths
-input_file = Path('/home/timo/Data/LasVegasDesc/ps_results_path.h5')
-output_dir = Path('/home/timo/Data/LasVegasDesc/aps')
+input_file = Path('/home/timo/Data/LVS1_snap/ps_results_path.h5')
+output_dir = Path('/home/timo/Data/LVS1_snap/aps')
 output_dir.mkdir(exist_ok=True)
 
 # Load data

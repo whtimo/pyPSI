@@ -105,11 +105,12 @@ class PSIParameterEstimator:
 
     def estimate_parameters(self, phase_differences):
         """
-        Parallelized version of parameter estimation
+        Non-parallel version for inner computation
         """
         # Define search spaces for height error and velocity
         height_search = np.linspace(-100, 100, 200)
         velocity_search = np.linspace(-100, 100, 200)
+
 
         # Calculate constants for phase conversion
         height_to_phase = (4 * np.pi / self.wavelength) * (
@@ -117,11 +118,14 @@ class PSIParameterEstimator:
         )
         velocity_to_phase = (4 * np.pi / self.wavelength) * self.temporal_baselines_years
 
-        # Prepare the coherence calculation function for parallel processing
-        def calculate_coherence_row(h, velocity_search, phase_differences, height_to_phase, velocity_to_phase):
-            coherence_row = np.zeros(len(velocity_search))
+        # Initialize coherence matrix
+        coherence_matrix = np.zeros((len(height_search), len(velocity_search)))
+
+        # Compute periodogram using numpy operations for better performance
+        for i, h in enumerate(height_search):
+            phase_topo = np.angle(np.exp(1j * h * height_to_phase))
+
             for j, v in enumerate(velocity_search):
-                phase_topo = np.angle(np.exp(1j * h * height_to_phase))
                 phase_motion = np.angle(np.exp(1j * (v / 1000.0) * velocity_to_phase))
                 model_phase = np.angle(np.exp(1j * (phase_topo + phase_motion)))
 
@@ -131,21 +135,9 @@ class PSIParameterEstimator:
                         np.exp(-1j * model_phase)
                     )
                 )
-                coherence_row[j] = temporal_coherence
-            return coherence_row
+                coherence_matrix[i, j] = temporal_coherence
 
-        # Parallel processing of coherence matrix
-        with mp.Pool() as pool:
-            func = partial(
-                calculate_coherence_row,
-                velocity_search=velocity_search,
-                phase_differences=phase_differences,
-                height_to_phase=height_to_phase,
-                velocity_to_phase=velocity_to_phase
-            )
-            coherence_matrix = np.array(pool.map(func, height_search))
-
-        # Find maximum coherence and calculate results
+        # Find maximum coherence
         max_idx = np.unravel_index(np.argmax(coherence_matrix), coherence_matrix.shape)
         best_height = height_search[max_idx[0]]
         best_velocity = velocity_search[max_idx[1]]
@@ -162,16 +154,9 @@ class PSIParameterEstimator:
 
         return best_height, best_velocity, max_coherence
 
+
 class ParameterEstimator:
     def __init__(self, ps_network):
-        """
-        Estimate parameters for entire PS network
-
-        Parameters:
-        -----------
-        ps_network: dict
-            Network information including edges and phase data
-        """
         self.ps_info = ps_info
         self.points = ps_info['points']
         self.parameter_estimator = PSIParameterEstimator(

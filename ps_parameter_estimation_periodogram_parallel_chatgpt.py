@@ -141,7 +141,7 @@ class PSIParameterEstimator:
 
         # Parallel computation of coherence matrix
         with Pool() as pool:
-            coherence_matrix = pool.map(compute_coherence, args_list)
+            coherence_matrix = pool.map(self.compute_coherence, args_list)
 
         coherence_matrix = np.array(coherence_matrix)
 
@@ -211,7 +211,7 @@ class ParameterEstimator:
 
         # Parallel computation
         with ProcessPoolExecutor() as executor:
-            results = executor.map(estimate_point_parameters, args_list)
+            results = executor.map(self.estimate_point_parameters, args_list)
 
         # Store the results
         for point_id, (height_error, velocity, temporal_coherence) in enumerate(results):
@@ -378,7 +378,7 @@ print("Start parameter estimation") # Adding some comments because it is a long 
 params = parameter_estimator.estimate_parameters(ref_point)
 print("Save parameters") # Adding some comments because it is a long process
 #save_network_parameters(params, ps_network, '/home/timo/Data/LasVegasDesc/ps_results3_perio_year.h5')
-save_point_data_to_csv("/home/timo/Data/LasVegasDesc/ps_phases.csv", "/home/timo/Data/LasVegasDesc/ps_results.csv", params)
+save_point_data_to_csv("/home/timo/Data/LasVegasDesc/ps_phases.csv", "/home/timo/Data/LasVegasDesc/ps_results_parallel_chatgpt.csv", params)
 end_time = time.perf_counter()
 elapsed_time = end_time - start_time
 print(f"Elapsed time: {elapsed_time:.4f} seconds")

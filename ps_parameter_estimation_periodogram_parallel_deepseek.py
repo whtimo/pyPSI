@@ -9,11 +9,12 @@ import h5py
 from multiprocessing import Pool, cpu_count
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from numba import njit
+import time
 
 @njit(parallel=True)
 def estimate_parameters_numba(phase_differences, height_search, velocity_search, height_to_phase, velocity_to_phase):
     coherence_matrix = np.zeros((len(height_search), len(velocity_search)), dtype=np.float64)
-    for i in prange(len(height_search)):
+    for i in njit.prange(len(height_search)):
         h = height_search[i]
         phase_topo = h * height_to_phase
         for j in range(len(velocity_search)):
@@ -166,14 +167,14 @@ class ParameterEstimator:
         )
 
     def _process_point(point_id, ref_point, ref_phases, parameter_estimator, points_array):
-        print(f"Processing point_id {point_id}")
+        #print(f"Processing point_id {point_id}")
         if point_id != ref_point:
             phases = points_array[point_id]
-            print(f"phases shape: {phases.shape}")
-            print(f"ref_phases shape: {ref_phases.shape}")
-            if phases.shape != ref_phases.shape:
-                print("Shapes do not match!")
-                return point_id, np.nan, np.nan, np.nan
+            #print(f"phases shape: {phases.shape}")
+            #print(f"ref_phases shape: {ref_phases.shape}")
+            # if phases.shape != ref_phases.shape:
+            #     print("Shapes do not match!")
+            #     return point_id, np.nan, np.nan, np.nan
             phase_differences = np.angle(np.exp(1j * (ref_phases - phases)))
             height_error, velocity, temporal_coherence, _ = parameter_estimator.estimate_parameters(phase_differences)
             return point_id, height_error, velocity, temporal_coherence
@@ -189,7 +190,7 @@ class ParameterEstimator:
 
         ref_phases = self.points.iloc[ref_point][3:].to_numpy()
         points_array = self.points.iloc[:, 3:].to_numpy()
-        print(f"points_array shape: {points_array.shape}")
+        #print(f"points_array shape: {points_array.shape}")
 
         with ProcessPoolExecutor() as executor:
             futures = [
@@ -198,6 +199,7 @@ class ParameterEstimator:
             for future in as_completed(futures):
                 result = future.result()
                 point_id, height_error, velocity, temporal_coherence = result
+                #print(f'{point_id} / {len(self.points)} - {height_error},{velocity},{temporal_coherence}')
                 parameters['height_errors'][point_id] = height_error
                 parameters['velocities'][point_id] = velocity
                 parameters['temporal_coherences'][point_id] = temporal_coherence
@@ -339,6 +341,7 @@ class PSInfo:
         else:
             raise KeyError(f"Key {key} not found in PSNetwork")
 
+start_time = time.perf_counter()
 # Read the CSV file
 df_psc = pd.read_csv('/home/timo/Data/LasVegasDesc/ps.csv')
 df_ps = pd.read_csv('/home/timo/Data/LasVegasDesc/ps_phases.csv')
@@ -360,6 +363,8 @@ params = parameter_estimator.estimate_parameters(ref_point)
 print("Save parameters") # Adding some comments because it is a long process
 #save_network_parameters(params, ps_network, '/home/timo/Data/LasVegasDesc/ps_results3_perio_year.h5')
 save_point_data_to_csv("/home/timo/Data/LasVegasDesc/ps_phases.csv", "/home/timo/Data/LasVegasDesc/ps_results_deepseek.csv", params)
-
+end_time = time.perf_counter()
+elapsed_time = end_time - start_time
+print(f"Elapsed time: {elapsed_time:.4f} seconds")
 
 

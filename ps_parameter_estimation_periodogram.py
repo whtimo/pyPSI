@@ -6,7 +6,7 @@ from datetime import datetime
 import xml.etree.ElementTree as ET
 from pathlib import Path
 import h5py
-
+import time
 
 def save_point_data_to_csv(input_csv, output_csv, params):
     """
@@ -373,6 +373,7 @@ class PSInfo:
         else:
             raise KeyError(f"Key {key} not found in PSNetwork")
 
+start_time = time.perf_counter()
 # Read the CSV file
 df_psc = pd.read_csv('/home/timo/Data/LasVegasDesc/ps.csv')
 df_ps = pd.read_csv('/home/timo/Data/LasVegasDesc/ps_phases.csv')
@@ -394,6 +395,8 @@ params = parameter_estimator.estimate_parameters(ref_point)
 print("Save parameters") # Adding some comments because it is a long process
 #save_network_parameters(params, ps_network, '/home/timo/Data/LasVegasDesc/ps_results3_perio_year.h5')
 save_point_data_to_csv("/home/timo/Data/LasVegasDesc/ps_phases.csv", "/home/timo/Data/LasVegasDesc/ps_results.csv", params)
-
+end_time = time.perf_counter()
+elapsed_time = end_time - start_time
+print(f"Elapsed time: {elapsed_time:.4f} seconds")
 
 

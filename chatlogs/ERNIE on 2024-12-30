@@ -217,3 +217,56 @@ class PSIParameterEstimator:
 Note that parallelization introduces overhead, so it's important to ensure that the computational cost of each task is significant enough to make parallelization worthwhile. Additionally, since your code involves complex numbers and phase calculations, it's crucial to ensure that any parallelization strategy maintains numerical stability and consistency across different processes or threads.
 
 Remember to test your parallelized code thoroughly to ensure it produces the same results as the serial version and to measure the performance improvement achieved.
+
+
+
+> There is an error in the line <<< coherence_values = list(executor.map(compute_coherence, hv_pairs))
+>>> Attribute Error: Can't pickle local object PSIParameterEstimator.estimate_parameters.<locals>.compute_coherence
+
+
+这个错误发生是因为 executor.map 尝试将 compute_coherence 函数序列化（pickle）以便在多个进程之间传递，但是 compute_coherence 函数是一个局部定义的对象，无法被序列化。在 Python 中，pickle 用于序列化和反序列化对象结构，但并非所有的对象都可以被 pickle。特别是，在函数或方法内部定义的函数（即闭包或局部函数）通常不能被 pickle。
+
+为了解决这个问题，你可以尝试以下几种方法：
+
+    将局部函数提升为全局函数：
+    将 compute_coherence 函数定义移到模块的顶层，使其成为全局函数。这样它就可以被 pickle，并且可以在 executor.map 中使用。
+
+    使用全局可访问的函数或对象：
+    如果 compute_coherence 依赖于某些局部状态，考虑将这些状态作为参数传递，或者通过其他方式使它们在全局范围内可访问。
+
+    使用其他并行化策略：
+    如果修改 compute_coherence 以使其可序列化不是一个选项，你可能需要考虑使用不同的并行化方法，比如使用线程（如果 GIL 不是问题）或者使用像 concurrent.futures.ProcessPoolExecutor 的替代方案，该方案允许你通过不同的机制传递任务。
+
+    使用第三方库：
+    有些第三方库如 dill 或 cloudpickle 提供了比标准 pickle 更强大的序列化功能。你可以尝试使用这些库来序列化你的局部函数，但请注意这可能会引入其他依赖和复杂性。
+
+    重构代码：
+    有时候，重构代码以消除对局部函数的需要可能是最好的解决方案。这可能涉及重新组织你的代码结构，以便逻辑可以更容易地在多个进程之间共享。
+
+下面是一个简化的示例，展示了如何将局部函数提升为全局函数：
+
+python
+# 假设原本的代码是这样的
+def estimate_parameters(...):
+    # ... 一些代码 ...
+    
+    def compute_coherence(...):
+        # ... 计算连贯性的代码 ...
+        pass
+    
+    # ... 一些代码 ...
+    coherence_values = list(executor.map(compute_coherence, hv_pairs))
+    # ...
+ 
+# 修改后的代码
+def compute_coherence(...):
+    # ... 计算连贯性的代码 ...
+    pass
+ 
+def estimate_parameters(...):
+    # ... 一些代码 ...
+    # 现在 compute_coherence 是全局可访问的
+    coherence_values = list(executor.map(compute_coherence, hv_pairs))
+    # ...
+
+在这个修改后的版本中，compute_coherence 函数被定义在了模块的顶层，因此它可以在 executor.map 中被安全地使用。

@@ -71,6 +71,20 @@ def find_matching_point_index(reference_point_file, first_csv, second_csv):
     # Return the first matching index if found, otherwise None
     return matching_index[0] if len(matching_index) > 0 else None
 
+def compute_coherence(hv_pair):
+    h, v, phase_differences, height_to_phase, velocity_to_phase   = hv_pair
+    phase_topo = np.angle(np.exp(1j * h * height_to_phase))
+    phase_motion = np.angle(np.exp(1j * (v / 1000.0) * velocity_to_phase))  # Timo: velocity is given in mm
+    model_phase = np.angle(np.exp(1j * (phase_topo + phase_motion)))
+
+    # Timo: The np.angle of the phase difference seems to be a mistake as these are already given in radians
+    temporal_coherence = np.abs(
+        np.mean(
+            np.exp(1j * phase_differences) *
+            np.exp(-1j * model_phase)
+        )
+    )
+    return temporal_coherence
 
 class PSIParameterEstimator:
     def __init__(self,
@@ -101,6 +115,8 @@ class PSIParameterEstimator:
         self.range_distances = range_distances
         self.incidence_angles = incidence_angles
 
+
+
     def estimate_parameters(self, phase_differences):
         """
         Estimates height error and velocity along network edges using periodogram approach.
@@ -124,22 +140,7 @@ class PSIParameterEstimator:
         )
         velocity_to_phase = (4 * np.pi / self.wavelength) * self.temporal_baselines_years
 
-        def compute_coherence(hv_pair):
-            h, v = hv_pair
-            phase_topo = np.angle(np.exp(1j * h * height_to_phase))
-            phase_motion = np.angle(np.exp(1j * (v / 1000.0) * velocity_to_phase))  # Timo: velocity is given in mm
-            model_phase = np.angle(np.exp(1j * (phase_topo + phase_motion)))
-
-            # Timo: The np.angle of the phase difference seems to be a mistake as these are already given in radians
-            temporal_coherence = np.abs(
-                np.mean(
-                    np.exp(1j * phase_differences) *
-                    np.exp(-1j * model_phase)
-                )
-            )
-            return temporal_coherence
-
-        hv_pairs = [(h, v) for h in height_search for v in velocity_search]
+        hv_pairs = [(h, v, phase_differences, height_to_phase, velocity_to_phase) for h in height_search for v in velocity_search]
 
         # Use ProcessPoolExecutor to parallelize the grid search
         with ProcessPoolExecutor() as executor:

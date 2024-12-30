@@ -159,7 +159,7 @@ def plot_velocities_on_sar(results, ref_point,
                 ref_point['line'],
                 c='green',
                 marker='*',
-                s=marker_size * 20,
+                s=marker_size * 2 * 20,
                 label='Reference Point')
 
     # Add colorbar
@@ -205,7 +205,7 @@ plot_velocities_on_sar(
     dpi=300
 )
 """
-ref_point = find_matching_point_index('/home/timo/Data/LasVegasDesc/ref_point.txt', '/home/timo/Data/LasVegasDesc/ps.csv', '/home/timo/Data/LasVegasDesc/ps_phases.csv')
+ref_point = find_matching_point_index('/home/timo/Data/LasVegasDesc/ref_point.txt', '/home/timo/Data/LasVegasDesc/psc.csv', '/home/timo/Data/LasVegasDesc/ps.csv')
 
 results = load_csv_data('/home/timo/Data/LasVegasDesc/ps_results.csv')
 
@@ -216,6 +216,6 @@ plot_velocities_on_sar(
     sar_image_path='/home/timo/Data/LasVegasDesc/resampled/TSX-1_0_2010-09-19.tiff',
     output_path='/home/timo/Data/LasVegasDesc/ps_velocity_map.png',
     cmap='RdYlBu_r',
-    marker_size=5,
+    marker_size=2,
     dpi=600
 )

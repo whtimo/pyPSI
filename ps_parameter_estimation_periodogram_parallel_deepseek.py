@@ -358,7 +358,7 @@ print("Start parameter estimation") # Adding some comments because it is a long 
 params = parameter_estimator.estimate_parameters(ref_point)
 print("Save parameters") # Adding some comments because it is a long process
 #save_network_parameters(params, ps_network, '/home/timo/Data/LasVegasDesc/ps_results3_perio_year.h5')
-save_point_data_to_csv("/home/timo/Data/LasVegasDesc/ps_phases.csv", "/home/timo/Data/LasVegasDesc/ps_results.csv", params)
+save_point_data_to_csv("/home/timo/Data/LasVegasDesc/ps_phases.csv", "/home/timo/Data/LasVegasDesc/ps_results_deepseek.csv", params)
 
 
 

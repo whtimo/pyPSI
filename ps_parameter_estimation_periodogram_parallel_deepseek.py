@@ -7,7 +7,22 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 import h5py
 from multiprocessing import Pool, cpu_count
+from concurrent.futures import ProcessPoolExecutor, as_completed
+from numba import njit
 
+@njit(parallel=True)
+def estimate_parameters_numba(phase_differences, height_search, velocity_search, height_to_phase, velocity_to_phase):
+    coherence_matrix = np.zeros((len(height_search), len(velocity_search)), dtype=np.float64)
+    for i in prange(len(height_search)):
+        h = height_search[i]
+        phase_topo = h * height_to_phase
+        for j in range(len(velocity_search)):
+            v = velocity_search[j]
+            phase_motion = (v / 1000.0) * velocity_to_phase
+            model_phase = phase_topo + phase_motion
+            coherence = np.abs(np.mean(np.exp(1j * (phase_differences - model_phase))))
+            coherence_matrix[i, j] = coherence
+    return coherence_matrix
 
 def save_point_data_to_csv(input_csv, output_csv, params):
     """
@@ -102,15 +117,6 @@ class PSIParameterEstimator:
         self.incidence_angles = incidence_angles
 
     def estimate_parameters(self, phase_differences):
-        """
-        Estimates height error and velocity along network edges using periodogram approach.
-
-        Args:
-            phase_differences (ndarray): Complex phase differences between two PS points
-
-        Returns:
-            tuple: (height_error, velocity, temporal_coherence, residuals)
-        """
         # Define search spaces for height error and velocity
         height_search = np.linspace(-100, 100, 200)  # meters, adjust range as needed
         velocity_search = np.linspace(-100, 100, 200)  # mm/year, adjust range as needed
@@ -121,16 +127,9 @@ class PSIParameterEstimator:
         )
         velocity_to_phase = (4 * np.pi / self.wavelength) * self.temporal_baselines_years
 
-        # Compute model phases using vectorized operations
-        height_term = height_search[:, np.newaxis, np.newaxis] * height_to_phase[np.newaxis, :, :]
-        velocity_term = (velocity_search[:, np.newaxis, np.newaxis] / 1000.0) * velocity_to_phase[np.newaxis, :, :]
-        model_phases = height_term + velocity_term
-
-        # Compute temporal coherence using vectorized operations
-        exp_model_phases = np.exp(-1j * model_phases)
-        exp_phase_differences = np.exp(1j * phase_differences)
-        coherence = np.mean(exp_phase_differences[np.newaxis, :, :] * exp_model_phases, axis=2)
-        coherence_matrix = np.abs(coherence)
+        # Compute coherence matrix using Numba
+        coherence_matrix = estimate_parameters_numba(phase_differences, height_search, velocity_search, height_to_phase,
+                                                     velocity_to_phase)
 
         # Find maximum coherence
         max_coherence = np.max(coherence_matrix)
@@ -145,7 +144,7 @@ class PSIParameterEstimator:
         residuals = np.angle(np.exp(1j * phase_differences) * np.exp(-1j * best_model_phase))
 
         return best_height, best_velocity, max_coherence, residuals
-
+    
 class ParameterEstimator:
     def __init__(self, ps_network):
         """
@@ -166,24 +165,22 @@ class ParameterEstimator:
             incidence_angles=ps_network['incidence_angles']
         )
 
-    def _process_point(self, point_id, ref_point, ref_phases):
+    def _process_point(point_id, ref_point, ref_phases, parameter_estimator, points_array):
+        print(f"Processing point_id {point_id}")
         if point_id != ref_point:
-            phases = self.points.iloc[point_id][3:].to_numpy()
+            phases = points_array[point_id]
+            print(f"phases shape: {phases.shape}")
+            print(f"ref_phases shape: {ref_phases.shape}")
+            if phases.shape != ref_phases.shape:
+                print("Shapes do not match!")
+                return point_id, np.nan, np.nan, np.nan
             phase_differences = np.angle(np.exp(1j * (ref_phases - phases)))
-            height_error, velocity, temporal_coherence, _ = self.parameter_estimator.estimate_parameters(phase_differences)
+            height_error, velocity, temporal_coherence, _ = parameter_estimator.estimate_parameters(phase_differences)
             return point_id, height_error, velocity, temporal_coherence
         else:
             return point_id, 0.0, 0.0, 1.0
 
     def estimate_parameters(self, ref_point: int) -> dict:
-        """
-        Estimate parameters for all edges in the network
-
-        Returns:
-        --------
-        network_parameters: dict
-            Dictionary containing estimated parameters for each edge
-        """
         parameters = {
             'height_errors': {},
             'velocities': {},
@@ -191,15 +188,19 @@ class ParameterEstimator:
         }
 
         ref_phases = self.points.iloc[ref_point][3:].to_numpy()
+        points_array = self.points.iloc[:, 3:].to_numpy()
+        print(f"points_array shape: {points_array.shape}")
 
-        # Parallel processing of points
-        with Pool(processes=cpu_count()) as pool:
-            results = pool.starmap(self._process_point, [(point_id, ref_point, ref_phases) for point_id in range(len(self.points))])
-
-        for point_id, height_error, velocity, temporal_coherence in results:
-            parameters['height_errors'][point_id] = height_error
-            parameters['velocities'][point_id] = velocity
-            parameters['temporal_coherences'][point_id] = temporal_coherence
+        with ProcessPoolExecutor() as executor:
+            futures = [
+                executor.submit(self._process_point, point_id, ref_point, ref_phases, self.parameter_estimator, points_array)
+                for point_id in range(len(self.points))]
+            for future in as_completed(futures):
+                result = future.result()
+                point_id, height_error, velocity, temporal_coherence = result
+                parameters['height_errors'][point_id] = height_error
+                parameters['velocities'][point_id] = velocity
+                parameters['temporal_coherences'][point_id] = temporal_coherence
 
         return parameters
 

@@ -6,9 +6,11 @@ from datetime import datetime
 import xml.etree.ElementTree as ET
 from pathlib import Path
 import h5py
+from multiprocessing import Pool, cpu_count
+from concurrent.futures import ProcessPoolExecutor, as_completed
+from numba import njit
 import time
-from concurrent.futures import ProcessPoolExecutor
-from multiprocessing import Pool
+
 
 
 def save_point_data_to_csv(input_csv, output_csv, params):
@@ -103,29 +105,22 @@ class PSIParameterEstimator:
         self.range_distances = range_distances
         self.incidence_angles = incidence_angles
 
-    def compute_coherence(args):
-        h, height_to_phase, velocity_to_phase, phase_differences, velocity_search, wavelength = args
-        coherence_row = np.zeros(len(velocity_search))
-        for j, v in enumerate(velocity_search):
-            # Calculate model phases
-            phase_topo = np.angle(np.exp(1j * h * height_to_phase))
-            phase_motion = np.angle(np.exp(1j * (v / 1000.0) * velocity_to_phase))
-            model_phase = np.angle(np.exp(1j * (phase_topo + phase_motion)))
-
-            # Calculate temporal coherence
-            temporal_coherence = np.abs(
-                np.mean(
-                    np.exp(1j * phase_differences) *
-                    np.exp(-1j * model_phase)
-                )
-            )
-            coherence_row[j] = temporal_coherence
-        return coherence_row
-
     def estimate_parameters(self, phase_differences):
+        """
+        Estimates height error and velocity along network edges using periodogram approach.
+
+        Args:
+            phase_differences (ndarray): Complex phase differences between two PS points
+
+        Returns:
+            tuple: (height_error, velocity, temporal_coherence, residuals)
+        """
         # Define search spaces for height error and velocity
-        height_search = np.linspace(-100, 100, 200)
-        velocity_search = np.linspace(-100, 100, 200)
+        height_search = np.linspace(-100, 100, 200)  # meters, adjust range as needed
+        velocity_search = np.linspace(-100, 100, 200)  # mm/year, adjust range as needed
+
+        # Initialize coherence matrix
+        coherence_matrix = np.zeros((len(height_search), len(velocity_search)))
 
         # Calculate constants for phase conversion
         height_to_phase = (4 * np.pi / self.wavelength) * (
@@ -133,17 +128,33 @@ class PSIParameterEstimator:
         )
         velocity_to_phase = (4 * np.pi / self.wavelength) * self.temporal_baselines_years
 
-        # Prepare arguments for parallel computation
-        args_list = [
-            (h, height_to_phase, velocity_to_phase, phase_differences, velocity_search, self.wavelength)
-            for h in height_search
-        ]
+        # Compute periodogram
+        for i, h in enumerate(height_search):
+            for j, v in enumerate(velocity_search):
+                # Calculate model phases
+                # phase_topo = h * height_to_phase
+                # phase_motion = v * velocity_to_phase
+                # model_phase = phase_topo + phase_motion
+                phase_topo = np.angle(np.exp(1j * h * height_to_phase))
+                phase_motion = np.angle(np.exp(1j * (v / 1000.0) * velocity_to_phase))  # Timo: velocity is given in mm
+                model_phase = np.angle(np.exp(1j * (phase_topo + phase_motion)))
 
-        # Parallel computation of coherence matrix
-        with Pool() as pool:
-            coherence_matrix = pool.map(self.compute_coherence, args_list)
+                # Calculate temporal coherence (equation 6.10)
+                # temporal_coherence = np.abs(
+                #     np.mean(
+                #         np.exp(1j * np.angle(phase_differences)) *
+                #         np.exp(-1j * model_phase)
+                #     )
+                # )
 
-        coherence_matrix = np.array(coherence_matrix)
+                # Timo: The np.angle of the phase difference seems to be a mistake as these are already given in radians
+                temporal_coherence = np.abs(
+                    np.mean(
+                        np.exp(1j * phase_differences) *
+                        np.exp(-1j * model_phase)
+                    )
+                )
+                coherence_matrix[i, j] = temporal_coherence
 
         # Find maximum coherence
         max_idx = np.unravel_index(np.argmax(coherence_matrix), coherence_matrix.shape)
@@ -151,17 +162,28 @@ class PSIParameterEstimator:
         best_velocity = velocity_search[max_idx[1]]
         max_coherence = coherence_matrix[max_idx]
 
-        # Calculate residuals (same as before)
+        # Calculate residuals
         best_phase_topo = np.angle(np.exp(1j * best_height * height_to_phase))
         best_phase_motion = np.angle(np.exp(1j * (best_velocity / 1000) * velocity_to_phase))
         best_model_phase = np.angle(np.exp(1j * (best_phase_topo + best_phase_motion)))
-
+        temporal_coherence2 = np.abs(
+            np.mean(
+                np.exp(1j * phase_differences) *
+                np.exp(-1j * best_model_phase)
+            )
+        )
+        # residuals = np.angle(
+        #     np.exp(1j * np.angle(phase_differences)) *
+        #     np.exp(-1j * model_phase)
+        # )
+        # Timo: The np.angle of the phase difference seems to be a mistake as these are already given in radians
         residuals = np.angle(
             np.exp(1j * phase_differences) *
             np.exp(-1j * best_model_phase)
         )
 
         return best_height, best_velocity, max_coherence
+
 
 class ParameterEstimator:
     def __init__(self, ps_network):
@@ -183,11 +205,20 @@ class ParameterEstimator:
             incidence_angles=ps_network['incidence_angles']
         )
 
-    def estimate_point_parameters(args):
-        ref_phases, phases, parameter_estimator = args
-        phase_differences = np.angle(np.exp(1j * (ref_phases - phases)))
-        height_error, velocity, temporal_coherence = parameter_estimator.estimate_parameters(phase_differences)
-        return height_error, velocity, temporal_coherence
+    def _process_point(point_id, ref_point, ref_phases, parameter_estimator, points_array):
+        #print(f"Processing point_id {point_id}")
+        if point_id != ref_point:
+            phases = points_array[point_id]
+            #print(f"phases shape: {phases.shape}")
+            #print(f"ref_phases shape: {ref_phases.shape}")
+            # if phases.shape != ref_phases.shape:
+            #     print("Shapes do not match!")
+            #     return point_id, np.nan, np.nan, np.nan
+            phase_differences = np.angle(np.exp(1j * (ref_phases - phases)))
+            height_error, velocity, temporal_coherence, _ = parameter_estimator.estimate_parameters(phase_differences)
+            return point_id, height_error, velocity, temporal_coherence
+        else:
+            return point_id, 0.0, 0.0, 1.0
 
     def estimate_parameters(self, ref_point: int) -> dict:
         parameters = {
@@ -197,30 +228,22 @@ class ParameterEstimator:
         }
 
         ref_phases = self.points.iloc[ref_point][3:].to_numpy()
+        points_array = self.points.iloc[:, 3:].to_numpy()
+        #print(f"points_array shape: {points_array.shape}")
 
-        # Prepare arguments for parallel computation
-        args_list = []
-        for point_id in range(len(self.points)):
-            if point_id != ref_point:
-                phases = self.points.iloc[point_id][3:].to_numpy()
-                args_list.append((ref_phases, phases, self.parameter_estimator))
-            else:
-                parameters['height_errors'][point_id] = 0.0
-                parameters['velocities'][point_id] = 0.0
-                parameters['temporal_coherences'][point_id] = 1.0
-
-        # Parallel computation
         with ProcessPoolExecutor() as executor:
-            results = executor.map(self.estimate_point_parameters, args_list)
-
-        # Store the results
-        for point_id, (height_error, velocity, temporal_coherence) in enumerate(results):
-            parameters['height_errors'][point_id] = height_error
-            parameters['velocities'][point_id] = velocity
-            parameters['temporal_coherences'][point_id] = temporal_coherence
+            futures = [
+                executor.submit(self._process_point, point_id, ref_point, ref_phases, self.parameter_estimator, points_array)
+                for point_id in range(len(self.points))]
+            for future in as_completed(futures):
+                result = future.result()
+                point_id, height_error, velocity, temporal_coherence = result
+                #print(f'{point_id} / {len(self.points)} - {height_error},{velocity},{temporal_coherence}')
+                parameters['height_errors'][point_id] = height_error
+                parameters['velocities'][point_id] = velocity
+                parameters['temporal_coherences'][point_id] = temporal_coherence
 
         return parameters
-
 
 class PSInfo:
     def __init__(self, dates: List[datetime], xml_path: str, points_file: str):
@@ -378,7 +401,7 @@ print("Start parameter estimation") # Adding some comments because it is a long 
 params = parameter_estimator.estimate_parameters(ref_point)
 print("Save parameters") # Adding some comments because it is a long process
 #save_network_parameters(params, ps_network, '/home/timo/Data/LasVegasDesc/ps_results3_perio_year.h5')
-save_point_data_to_csv("/home/timo/Projects/LasVegasDesc/ps_phases.csv", "/home/timo/Projects/LasVegasDesc/ps_results_parallel_chatgpt.csv", params)
+save_point_data_to_csv("/home/timo/Projects/LasVegasDesc/ps_phases.csv", "/home/timo/Projects/LasVegasDesc/ps_results_deepseek.csv", params)
 end_time = time.perf_counter()
 elapsed_time = end_time - start_time
 print(f"Elapsed time: {elapsed_time:.4f} seconds")

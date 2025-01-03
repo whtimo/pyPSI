@@ -394,7 +394,7 @@ print("Start parameter estimation") # Adding some comments because it is a long 
 params = parameter_estimator.estimate_parameters(ref_point)
 print("Save parameters") # Adding some comments because it is a long process
 #save_network_parameters(params, ps_network, '/home/timo/Data/LasVegasDesc/ps_results3_perio_year.h5')
-save_point_data_to_csv("/home/timo/Projects/LasVegasDesc/ps_phases.csv", "/home/timo/Projects/LasVegasDesc/ps_results.csv", params)
+save_point_data_to_csv("/home/timo/Projects/LasVegasDesc/ps_phases.csv", "/home/timo/Projects/LasVegasDesc/ps_results_orig.csv", params)
 end_time = time.perf_counter()
 elapsed_time = end_time - start_time
 print(f"Elapsed time: {elapsed_time:.4f} seconds")

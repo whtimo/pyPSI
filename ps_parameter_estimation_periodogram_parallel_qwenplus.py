@@ -200,7 +200,7 @@ class ParameterEstimator:
                 'temporal_coherence': 1.0
             }
 
-        phases = self.ps_info.iloc[point_id][3:].to_numpy()
+        phases = self.points.iloc[point_id][3:].to_numpy()
         phase_differences = np.angle(np.exp(1j * (ref_phases - phases)))
         height_error, velocity, temporal_coherence = (
             self.parameter_estimator.estimate_parameters(phase_differences)
@@ -222,11 +222,11 @@ class ParameterEstimator:
             'temporal_coherences': {}
         }
 
-        ref_phases = self.ps_info.iloc[ref_point][3:].to_numpy()
+        ref_phases = self.points.iloc[ref_point][3:].to_numpy()
 
         results = Parallel(n_jobs=-1)(
             delayed(self.estimate_parameters_for_point)(point_id, ref_phases)
-            for point_id in range(len(self.ps_info))
+            for point_id in range(len(self.points))
         )
 
         for point_id, result in enumerate(results):

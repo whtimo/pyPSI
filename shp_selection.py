@@ -241,12 +241,9 @@ def select_shp(amplitude_stack, center_pixel, window_size=20, alpha=0.05, connec
 
 def process_point(point_data):
     i, j = point_data
-    if i < 50 and j < 50:
-        shp_mask = select_shp(amplitude_stack, (i, j), window_size=20, connectivity=4)
-        shp_count = np.sum(shp_mask)
-        return i, j, shp_count
-    else:
-        return i, j, 0
+    shp_mask = select_shp(amplitude_stack, (i, j), window_size=20, connectivity=4)
+    shp_count = np.sum(shp_mask)
+    return i, j, shp_count
 
 def process_ds_candidates(amplitude_stack, min_shp_count=10):
     """

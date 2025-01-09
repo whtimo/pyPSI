@@ -5,7 +5,8 @@ from scipy.ndimage import binary_dilation, generate_binary_structure
 import os
 import rasterio
 from pathlib import Path
-
+import multiprocessing as mp
+import time
 
 def save_shp_counts(shp_counts, reference_tiff, output_path):
     """
@@ -145,7 +146,7 @@ def load_amplitude_data(input_directory):
     return amplitude_stack
 
 
-def select_shp(amplitude_stack, center_pixel, window_size=15, alpha=0.05, connectivity=8):
+def select_shp(amplitude_stack, center_pixel, window_size=20, alpha=0.05, connectivity=8):
     """
     Select Statistically Homogeneous Pixels (SHP) using DespecKS approach,
     ensuring connectivity to the center pixel.
@@ -238,6 +239,14 @@ def select_shp(amplitude_stack, center_pixel, window_size=15, alpha=0.05, connec
 
     return connected_mask
 
+def process_point(point_data):
+    i, j = point_data
+    if i < 50 and j < 50:
+        shp_mask = select_shp(amplitude_stack, (i, j), window_size=20, connectivity=4)
+        shp_count = np.sum(shp_mask)
+        return i, j, shp_count
+    else:
+        return i, j, 0
 
 def process_ds_candidates(amplitude_stack, min_shp_count=10):
     """
@@ -262,15 +271,17 @@ def process_ds_candidates(amplitude_stack, min_shp_count=10):
     ds_candidates = np.zeros((rows, cols), dtype=bool)
     shp_counts = np.zeros((rows, cols), dtype=int)
 
-    # Iterate through all pixels
-    for i in range(rows):
-        for j in range(cols):
-            shp_mask = select_shp(amplitude_stack, (i, j))
-            shp_count = np.sum(shp_mask)
-            shp_counts[i, j] = shp_count
+    # Prepare data for parallel processing
+    point_data = [(i, j) for i in range(rows) for j in range(cols)]
 
-            if shp_count >= min_shp_count:
-                ds_candidates[i, j] = True
+    # Parallel processing of points
+    with mp.Pool() as pool:
+        results = pool.map(process_point, point_data)
+
+    for i, j, shp_count in results:
+        shp_counts[i, j] = shp_count
+        if shp_count >= min_shp_count:
+            ds_candidates[i, j] = True
 
     return ds_candidates, shp_counts
 
@@ -288,3 +299,14 @@ shp_mask = select_shp(amplitude_stack, center_pixel)
 ds_candidates, shp_counts = process_ds_candidates(amplitude_stack)
 """
 
+amplitude_stack = load_amplitude_data('/home/timo/Projects/WuhanTSXAirport/resample')
+#center_pixel = (100, 100)  # Example coordinates
+#shp_mask = select_shp(amplitude_stack, center_pixel, window_size=20)
+
+start_time = time.perf_counter()
+ds_candidates, shp_counts = process_ds_candidates(amplitude_stack)
+end_time = time.perf_counter()
+elapsed_time = end_time - start_time
+print(f"Elapsed time: {elapsed_time:.4f} seconds")
+
+save_shp_counts_simple(shp_counts, '/home/timo/Projects/WuhanTSXAirport/shpcount.tiff')

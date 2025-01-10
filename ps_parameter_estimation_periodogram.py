@@ -1,11 +1,11 @@
 import numpy as np
-from scipy.optimize import least_squares
+#from scipy.optimize import least_squares
 from typing import Tuple, List, Dict, Union
 import pandas as pd
 from datetime import datetime
 import xml.etree.ElementTree as ET
 from pathlib import Path
-import h5py
+#import h5py
 import time
 
 def save_point_data_to_csv(input_csv, output_csv, params):
@@ -373,30 +373,31 @@ class PSInfo:
         else:
             raise KeyError(f"Key {key} not found in PSNetwork")
 
-start_time = time.perf_counter()
-# Read the CSV file
-df_psc = pd.read_csv('/home/timo/Data/LasVegasDesc/ps.csv')
-df_ps = pd.read_csv('/home/timo/Data/LasVegasDesc/ps_phases.csv')
-# Get the column names that are dates (skip the first 3 columns)
-date_columns = df_ps.columns[3:]
+if __name__ == "__main__":
+    start_time = time.perf_counter()
+    # Read the CSV file
+    df_psc = pd.read_csv('/home/timo/Data/LasVegasDesc/ps.csv')
+    df_ps = pd.read_csv('/home/timo/Data/LasVegasDesc/ps_phases.csv')
+    # Get the column names that are dates (skip the first 3 columns)
+    date_columns = df_ps.columns[3:]
 
-# Convert the date strings to datetime objects and store in a list
-dates = [datetime.strptime(date, '%Y-%m-%d') for date in date_columns]
+    # Convert the date strings to datetime objects and store in a list
+    dates = [datetime.strptime(date, '%Y-%m-%d') for date in date_columns]
 
-#ref_point = 0
-ref_point = find_matching_point_index('/home/timo/Data/LasVegasDesc/ref_point.txt', '/home/timo/Data/LasVegasDesc/psc.csv', '/home/timo/Data/LasVegasDesc/ps.csv')
-#print("Reading the network") # Adding some comments because it is a long process
-#ps_network = PSNetwork(dates, "/path/to/xml/files")
-ps_info = PSInfo(dates, "/home/timo/Data/LasVegasDesc/topo",  "/home/timo/Data/LasVegasDesc/ps_phases.csv")
+    #ref_point = 0
+    ref_point = find_matching_point_index('/home/timo/Data/LasVegasDesc/ref_point.txt', '/home/timo/Data/LasVegasDesc/psc.csv', '/home/timo/Data/LasVegasDesc/ps.csv')
+    #print("Reading the network") # Adding some comments because it is a long process
+    #ps_network = PSNetwork(dates, "/path/to/xml/files")
+    ps_info = PSInfo(dates, "/home/timo/Data/LasVegasDesc/topo",  "/home/timo/Data/LasVegasDesc/ps_phases.csv")
 
-parameter_estimator = ParameterEstimator(ps_info)
-print("Start parameter estimation") # Adding some comments because it is a long process
-params = parameter_estimator.estimate_parameters(ref_point)
-print("Save parameters") # Adding some comments because it is a long process
-#save_network_parameters(params, ps_network, '/home/timo/Data/LasVegasDesc/ps_results3_perio_year.h5')
-save_point_data_to_csv("/home/timo/Data/LasVegasDesc/ps_phases.csv", "/home/timo/Data/LasVegasDesc/ps_results_orig.csv", params)
-end_time = time.perf_counter()
-elapsed_time = end_time - start_time
-print(f"Elapsed time: {elapsed_time:.4f} seconds")
+    parameter_estimator = ParameterEstimator(ps_info)
+    print("Start parameter estimation") # Adding some comments because it is a long process
+    params = parameter_estimator.estimate_parameters(ref_point)
+    print("Save parameters") # Adding some comments because it is a long process
+    #save_network_parameters(params, ps_network, '/home/timo/Data/LasVegasDesc/ps_results3_perio_year.h5')
+    save_point_data_to_csv("/home/timo/Data/LasVegasDesc/ps_phases.csv", "/home/timo/Data/LasVegasDesc/ps_results_orig.csv", params)
+    end_time = time.perf_counter()
+    elapsed_time = end_time - start_time
+    print(f"Elapsed time: {elapsed_time:.4f} seconds")
 
 

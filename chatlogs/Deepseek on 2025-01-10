@@ -1,0 +1,366 @@
+Deepseek on 2025-01-10
+
+> I want to develop automated unit testing in Python for the PSIParameterEstimator class shown below.
+
+<<<
+class PSIParameterEstimator:
+    def __init__(self,
+                 wavelength: float,
+                 temporal_baselines: np.ndarray,
+                 perpendicular_baselines: np.ndarray,
+                 range_distances: np.ndarray,
+                 incidence_angles: np.ndarray):
+        """
+        Initialize PSI parameter estimator
+
+        Parameters:
+        -----------
+        wavelength: float
+            Radar wavelength in meters
+        temporal_baselines: np.ndarray
+            Time differences between master and slave images in days
+        perpendicular_baselines: np.ndarray
+            Perpendicular baselines in meters
+        range_distances: np.ndarray
+            Slant range distances in meters
+        incidence_angles: np.ndarray
+            Local incidence angles in radians
+        """
+        self.wavelength = wavelength
+        self.temporal_baselines_years = temporal_baselines / 365.0 #Timo: temporal baselines need to be given in years
+        self.perpendicular_baselines = perpendicular_baselines
+        self.range_distances = range_distances
+        self.incidence_angles = incidence_angles
+
+    def estimate_parameters(self, phase_differences):
+        """
+        Estimates height error and velocity along network edges using periodogram approach.
+
+        Args:
+            phase_differences (ndarray): Complex phase differences between two PS points
+
+        Returns:
+            tuple: (height_error, velocity, temporal_coherence, residuals)
+        """
+        # Define search spaces for height error and velocity
+        height_search = np.linspace(-100, 100, 200)  # meters, adjust range as needed
+        velocity_search = np.linspace(-100, 100, 200)  # mm/year, adjust range as needed
+
+        # Initialize coherence matrix
+        coherence_matrix = np.zeros((len(height_search), len(velocity_search)))
+
+        # Calculate constants for phase conversion
+        height_to_phase = (4 * np.pi / self.wavelength) * (
+                self.perpendicular_baselines / (self.range_distances * np.sin(self.incidence_angles))
+        )
+        velocity_to_phase = (4 * np.pi / self.wavelength) * self.temporal_baselines_years
+
+        # Compute periodogram
+        for i, h in enumerate(height_search):
+            for j, v in enumerate(velocity_search):
+                # Calculate model phases
+                #phase_topo = h * height_to_phase
+                #phase_motion = v * velocity_to_phase
+                #model_phase = phase_topo + phase_motion
+                phase_topo = np.angle(np.exp(1j * h * height_to_phase))
+                phase_motion = np.angle(np.exp(1j * (v / 1000.0) * velocity_to_phase)) #Timo: velocity is given in mm
+                model_phase = np.angle(np.exp(1j * (phase_topo + phase_motion)))
+
+                # Calculate temporal coherence (equation 6.10)
+                # temporal_coherence = np.abs(
+                #     np.mean(
+                #         np.exp(1j * np.angle(phase_differences)) *
+                #         np.exp(-1j * model_phase)
+                #     )
+                # )
+
+                #Timo: The np.angle of the phase difference seems to be a mistake as these are already given in radians
+                temporal_coherence = np.abs(
+                    np.mean(
+                        np.exp(1j * phase_differences) *
+                        np.exp(-1j * model_phase)
+                    )
+                )
+                coherence_matrix[i, j] = temporal_coherence
+
+        # Find maximum coherence
+        max_idx = np.unravel_index(np.argmax(coherence_matrix), coherence_matrix.shape)
+        best_height = height_search[max_idx[0]]
+        best_velocity = velocity_search[max_idx[1]]
+        max_coherence = coherence_matrix[max_idx]
+
+        # Calculate residuals
+        best_phase_topo = np.angle(np.exp(1j * best_height * height_to_phase))
+        best_phase_motion = np.angle(np.exp(1j * (best_velocity / 1000) * velocity_to_phase))
+        best_model_phase = np.angle(np.exp(1j * (best_phase_topo + best_phase_motion)))
+        temporal_coherence2 = np.abs(
+            np.mean(
+                np.exp(1j * phase_differences) *
+                np.exp(-1j * best_model_phase)
+            )
+        )
+        # residuals = np.angle(
+        #     np.exp(1j * np.angle(phase_differences)) *
+        #     np.exp(-1j * model_phase)
+        # )
+        # Timo: The np.angle of the phase difference seems to be a mistake as these are already given in radians
+        residuals = np.angle(
+            np.exp(1j * phase_differences) *
+            np.exp(-1j * best_model_phase)
+        )
+
+        return best_height, best_velocity, max_coherence
+
+>>>
+
+For the tests, we first test the __init__ by giving a random wavelength between 3 to 6 cm, array for temporal baseline (random between 10-300 days) and spatial baseline (random between -500 to 500 m). The array size should be between 20-30 also randomly, but similar for all ndarrays. The range_distances are all similar for all values in the array between 700 to 800 km. The incidence angles are also all identical between 30-50 degree. All distance units are given in meter. Please create the unit test that fills the PSIParameterEstimator class and test if the parameters are set correctly.  
+
+
+To develop automated unit tests for the `PSIParameterEstimator` class, we'll use Python's built-in `unittest` framework and `numpy` for array operations.
+
+**Step-by-step explanation:**
+
+1. **Import necessary modules:**
+   - `unittest` for creating test cases.
+   - `numpy` as `np` for array handling.
+   - The `PSIParameterEstimator` class from the appropriate module.
+
+2. **Set up the test case class:**
+   - Create a class `TestPSIParameterEstimator` inheriting from `unittest.TestCase`.
+
+3. **Set up common test data:**
+   - Use `setUp` method to generate random inputs and create an instance of `PSIParameterEstimator`.
+   - Fix a random seed for reproducibility.
+
+4. **Generate random inputs:**
+   - Choose a random size between 20 and 30 for the arrays.
+   - Generate a random wavelength between 0.03 and 0.06 meters.
+   - Generate arrays for temporal baselines, perpendicular baselines, range distances, and incidence angles within specified ranges.
+   - Ensure all arrays have the same size.
+
+5. **Create the estimator instance:**
+   - Instantiate `PSIParameterEstimator` with the generated parameters.
+
+6. **Write test methods:**
+   - Test if the wavelength is set correctly.
+   - Test if the temporal baselines are converted to years correctly.
+   - Test if the perpendicular baselines are set correctly.
+   - Test if the range distances are set correctly.
+   - Test if the incidence angles are converted to radians and set correctly.
+
+7. **Run the tests:**
+   - Use `unittest.main()` to run all the test methods.
+
+**Unit Test Code:**
+
+```python
+import unittest
+import numpy as np
+from your_module import PSIParameterEstimator  # Replace 'your_module' with the actual module name
+
+class TestPSIParameterEstimator(unittest.TestCase):
+
+    def setUp(self):
+        # Fix random seed for reproducibility
+        np.random.seed(42)
+        import random
+        random.seed(42)
+
+        # Random size for arrays between 20 and 30
+        self.size = random.randint(20, 30)
+
+        # Random wavelength between 3 to 6 cm (0.03 to 0.06 meters)
+        self.wavelength = random.uniform(0.03, 0.06)
+
+        # Random temporal baselines between 10-300 days
+        self.temporal_baselines = np.random.uniform(10, 300, size=self.size)
+
+        # Random perpendicular baselines between -500 to 500 meters
+        self.perpendicular_baselines = np.random.uniform(-500, 500, size=self.size)
+
+        # Random range distances, all similar between 700 to 800 km (700000 to 800000 meters)
+        self.range_distances = np.full(self.size, random.uniform(700000, 800000))
+
+        # Random incidence angles, all identical between 30-50 degrees, converted to radians
+        self.incidence_angles_degrees = random.uniform(30, 50)
+        self.incidence_angles = np.full(self.size, np.radians(self.incidence_angles_degrees))
+
+        # Create an instance of PSIParameterEstimator
+        self.estimator = PSIParameterEstimator(
+            self.wavelength,
+            self.temporal_baselines,
+            self.perpendicular_baselines,
+            self.range_distances,
+            self.incidence_angles
+        )
+
+    def test_wavelength(self):
+        self.assertAlmostEqual(self.estimator.wavelength, self.wavelength)
+
+    def test_temporal_baselines_years(self):
+        expected_temporal_baselines_years = self.temporal_baselines / 365.0
+        np.testing.assert_array_almost_equal(
+            self.estimator.temporal_baselines_years,
+            expected_temporal_baselines_years
+        )
+
+    def test_perpendicular_baselines(self):
+        np.testing.assert_array_almost_equal(
+            self.estimator.perpendicular_baselines,
+            self.perpendicular_baselines
+        )
+
+    def test_range_distances(self):
+        np.testing.assert_array_almost_equal(
+            self.estimator.range_distances,
+            self.range_distances
+        )
+
+    def test_incidence_angles(self):
+        np.testing.assert_array_almost_equal(
+            self.estimator.incidence_angles,
+            self.incidence_angles
+        )
+
+if __name__ == '__main__':
+    unittest.main()
+```
+
+**Notes:**
+
+- Replace `'your_module'` with the actual name of the module where `PSIParameterEstimator` is defined.
+- The `setUp` method is used to set up the test data that is common to all test methods.
+- The `assertAlmostEqual` method is used to compare floating-point numbers.
+- The `np.testing.assert_array_almost_equal` function is used to compare numpy arrays.
+- The random seed is set for reproducibility of the tests.
+- All arrays are generated with the same size between 20 and 30.
+- Incidence angles are converted from degrees to radians before being passed to the estimator.
+
+**To run the tests:**
+
+Save the test code in a file, for example, `test_psi_parameter_estimator.py`, and run it using:
+
+```bash
+python -m unittest test_psi_parameter_estimator.py
+```
+
+This will execute all the test methods and report any failures.
+
+
+> Great. Now we want to develop a test for 'def estimate_parameters(self, phase_differences):' The function is returning 'return best_height, best_velocity, max_coherence'. So, based on your knowledge on SAR interferometry, we define a height between 0-50 m and a linear velocity between -20 to 20 mm per year. Using the values we define before for           
+
+self.wavelength,
+self.temporal_baselines,
+self.perpendicular_baselines,
+self.range_distances,
+self.incidence_angles
+
+we calculate the topographic and motion phase for each image in the array. We add them up, taking care of the complex numbers, and give them to 'estimate_parameters(self, phase_differences)' as phase differences. The results of best_height and best_velocity should be close to the random height and linear velocity variables we created.
+
+
+To develop a unit test for the `estimate_parameters` method of the `PSIParameterEstimator` class, we need to simulate phase differences based on known height and velocity values and verify if the estimator can recover those values.
+
+### Approach
+
+1. **Define True Parameters**:
+   - `height_true`: a random value between 0-50 meters.
+   - `velocity_true`: a random value between -20 to 20 mm/year.
+
+2. **Compute Phase Components**:
+   - Calculate `height_to_phase` and `velocity_to_phase` using the same formulas as in the estimator.
+   - Compute `phase_topo_sim` and `phase_motion_sim` by wrapping the respective phases using `np.angle(np.exp(1j * phase))`.
+
+3. **Simulate Phase Differences**:
+   - Sum the simulated topographic and motion phases, wrap the result, and use it as `phase_differences`.
+
+4. **Estimate Parameters**:
+   - Pass `phase_differences` to `estimate_parameters` and retrieve `best_height`, `best_velocity`, and `max_coherence`.
+
+5. **Verify Results**:
+   - Check if `best_height` and `best_velocity` are close to `height_true` and `velocity_true` within a specified tolerance.
+   - Ensure `max_coherence` is close to 1, indicating perfect coherence in the noise-free case.
+
+### Solution Code
+
+```python
+import unittest
+import numpy as np
+from your_module import PSIParameterEstimator  # Replace 'your_module' with the actual module name
+
+class TestPSIParameterEstimator(unittest.TestCase):
+
+    def setUp(self):
+        # Fix random seed for reproducibility
+        np.random.seed(42)
+        import random
+        random.seed(42)
+
+        # Random size for arrays between 20 and 30
+        self.size = random.randint(20, 30)
+
+        # Random wavelength between 3 to 6 cm (0.03 to 0.06 meters)
+        self.wavelength = random.uniform(0.03, 0.06)
+
+        # Random temporal baselines between 10-300 days
+        self.temporal_baselines = np.random.uniform(10, 300, size=self.size)
+
+        # Random perpendicular baselines between -500 to 500 meters
+        self.perpendicular_baselines = np.random.uniform(-500, 500, size=self.size)
+
+        # Random range distances, all similar between 700 to 800 km (700000 to 800000 meters)
+        self.range_distances = np.full(self.size, random.uniform(700000, 800000))
+
+        # Random incidence angles, all identical between 30-50 degrees, converted to radians
+        self.incidence_angles_degrees = random.uniform(30, 50)
+        self.incidence_angles = np.full(self.size, np.radians(self.incidence_angles_degrees))
+
+        # Create an instance of PSIParameterEstimator
+        self.estimator = PSIParameterEstimator(
+            self.wavelength,
+            self.temporal_baselines,
+            self.perpendicular_baselines,
+            self.range_distances,
+            self.incidence_angles
+        )
+
+    def test_estimate_parameters(self):
+        # Define true height and velocity
+        height_true = random.uniform(0, 50)
+        velocity_true = random.uniform(-20, 20)
+
+        # Compute height_to_phase and velocity_to_phase
+        height_to_phase = (4 * np.pi / self.estimator.wavelength) * \
+                          (self.estimator.perpendicular_baselines / 
+                           (self.estimator.range_distances * np.sin(self.estimator.incidence_angles)))
+        velocity_to_phase = (4 * np.pi / self.estimator.wavelength) * self.estimator.temporal_baselines_years
+
+        # Compute phase_topo_sim and phase_motion_sim
+        phase_topo_sim = np.angle(np.exp(1j * height_true * height_to_phase))
+        phase_motion_sim = np.angle(np.exp(1j * (velocity_true / 1000.0) * velocity_to_phase))
+
+        # Compute model_phase_sim
+        model_phase_sim = np.angle(np.exp(1j * (phase_topo_sim + phase_motion_sim)))
+
+        # Set phase_differences
+        phase_differences = model_phase_sim
+
+        # Call estimate_parameters
+        best_height, best_velocity, max_coherence = self.estimator.estimate_parameters(phase_differences)
+
+        # Check if best_height and best_velocity are close to height_true and velocity_true
+        self.assertAlmostEqual(best_height, height_true, delta=0.5)
+        self.assertAlmostEqual(best_velocity, velocity_true, delta=0.5)
+
+        # Check if max_coherence is close to 1
+        self.assertAlmostEqual(max_coherence, 1.0, delta=1e-6)
+
+if __name__ == '__main__':
+    unittest.main()
+```
+
+### Explanation
+
+- **Setup**: Common test data is set up in `setUp` including random arrays and a fixed seed for reproducibility.
+- **Test Method**: `test_estimate_parameters` defines true height and velocity, computes phase components, simulates phase differences, and verifies the estimator's output.
+- **Assertions**: Uses `assertAlmostEqual` to check if the estimated parameters are close to the true values within specified tolerances.
+- **Coherence Check**: Ensures `max_coherence` is close to 1, confirming perfect coherence in the noise-free scenario.

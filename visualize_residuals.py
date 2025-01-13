@@ -19,7 +19,7 @@ axs = [fig.add_subplot(gs[0, 0]), fig.add_subplot(gs[0, 1]),
        fig.add_subplot(gs[1, 0]), fig.add_subplot(gs[1, 1])]
 
 # Find and sort the APS files
-aps_files = sorted(glob.glob('/home/timo/Data/LasVegasDesc/aps_filtered/*epoch_*.tif'))
+aps_files = sorted(glob.glob('/home/timo/Data/LasVegasDesc/aps/*epoch_*.tif'))
 
 # Create a list to store the image data for colorbar normalization
 all_data = []
@@ -36,16 +36,16 @@ vmax = max(data.max() for data in all_data)
 for idx, (epoch, date) in enumerate(zip(epochs_to_plot, selected_dates)):
     with rasterio.open(aps_files[epoch]) as src:
         data = src.read(1)
-        im = axs[idx].imshow(data, cmap='turbo', vmin=vmin, vmax=vmax)
+        im = axs[idx].imshow(data, cmap='Greys', vmin=vmin, vmax=vmax)
         axs[idx].set_title(f'{date}')
         axs[idx].axis('off')
 
 # Add colorbar on the right
 cbar_ax = fig.add_subplot(gs[:, 2])
-plt.colorbar(im, cax=cbar_ax, label='APS (rad)')
+plt.colorbar(im, cax=cbar_ax, label='Residual')
 
 # Adjust layout
 plt.tight_layout()
-plt.savefig('/home/timo/Data/LasVegasDesc/aps_figure.png', dpi=600, bbox_inches='tight')
+plt.savefig('/home/timo/Data/LasVegasDesc/residuals_figure.png', dpi=600, bbox_inches='tight')
 
 #plt.show()

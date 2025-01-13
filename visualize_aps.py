@@ -1,4 +1,4 @@
-iimport numpy as np
+import numpy as np
 import matplotlib.pyplot as plt
 import rasterio
 import glob
@@ -12,9 +12,9 @@ dates = df.columns[3:].tolist()  # Get dates from columns, skipping first 3 colu
 epochs_to_plot = [0, 5, 11, 17]
 selected_dates = [dates[i] for i in epochs_to_plot]
 
-# Create figure with space for colorbar at bottom
-fig = plt.figure(figsize=(12, 11))
-gs = fig.add_gridspec(3, 2, height_ratios=[1, 1, 0.1])
+# Create figure with space for colorbar on right
+fig = plt.figure(figsize=(13, 10))
+gs = fig.add_gridspec(2, 3, width_ratios=[1, 1, 0.1])
 axs = [fig.add_subplot(gs[0, 0]), fig.add_subplot(gs[0, 1]),
        fig.add_subplot(gs[1, 0]), fig.add_subplot(gs[1, 1])]
 
@@ -40,9 +40,9 @@ for idx, (epoch, date) in enumerate(zip(epochs_to_plot, selected_dates)):
         axs[idx].set_title(f'Date: {date}')
         axs[idx].axis('off')
 
-# Add colorbar at the bottom
-cbar_ax = fig.add_subplot(gs[2, :])
-plt.colorbar(im, cax=cbar_ax, label='APS (rad)', orientation='horizontal')
+# Add colorbar on the right
+cbar_ax = fig.add_subplot(gs[:, 2])
+plt.colorbar(im, cax=cbar_ax, label='APS (rad)')
 
 # Adjust layout
 plt.tight_layout()

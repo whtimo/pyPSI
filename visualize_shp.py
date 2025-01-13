@@ -22,6 +22,6 @@ plt.title('Brotherhood Pixels Distribution')
 
 # Adjust layout to prevent cutting off labels
 plt.tight_layout()
-plt.savefig('/home/timo/Projects/WuhanTSXAirport/shp_wuhan_airport.tiff', dpi=300, bbox_inches='tight')
+plt.savefig('/home/timo/Projects/WuhanTSXAirport/shp_wuhan_airport.png', dpi=300, bbox_inches='tight')
 # Show the plot
 #plt.show()

@@ -1,0 +1,81 @@
+Claude on 2025-01-13
+
+> I want to visualize Atmospheric Phase Screen (APS) images in Python. I have a directory containing the APS images as floating point tif files wnding with *epoch_000.tif, *epoch_001.tif, *epoch_002.tif, etc. The numbers corespond to the order of the date columns in a CSV file, witht he example below
+
+<<<
+
+,sample,line,2010-02-22,2010-03-05,2010-04-29,2010-05-10,2010-06-01,2010-06-23,2010-07-15,2010-08-28,2010-09-08,2010-09-30,2010-12-16,2010-12-27,2011-01-18,2011-02-09,2011-03-03,2011-03-25,2011-04-16,2011-05-08,2011-05-30
+0,1105,59,-1.194118081560263,-1.4173725613931532,-2.525093966316821,-0.20973920466673066,-0.6851667212920359,0.6970813271746579,1.7384759099641323,-3.076165639334736,0.03127496766570155,-0.2813901433808801,1.9987923901346263,-2.2172494948254835,2.5811733319212236,3.1103481696919624,-2.5304825305928316,-1.2650692158681005,-0.3583042012295751,1.958872945541249,0.16789579497225476
+>>>
+
+So that *epoch_000.tif would be 2010-02-22, *epoch_001.tif would be 2010-03-05, etc.
+
+I want to visualize 4 images (000, 005, 011, 017). The date of each image should be shown and there should be one legend for all of them showing the APS. The color scale should be 'turbo'.
+
+Please only show me the code and do not run it in the code interpreter. 
+
+I'll help you create a Python script to visualize the APS images with the specifications you've requested. Here's the code that will create a 2x2 subplot figure with the four specified epochs:
+
+```python
+import numpy as np
+import matplotlib.pyplot as plt
+import rasterio
+import glob
+import pandas as pd
+
+# Read the CSV file
+df = pd.read_csv('your_csv_file.csv')
+dates = df.columns[3:].tolist()  # Get dates from columns, skipping first 3 columns
+
+# Get the dates for the epochs we want to visualize
+epochs_to_plot = [0, 5, 11, 17]
+selected_dates = [dates[i] for i in epochs_to_plot]
+
+# Create a figure with 2x2 subplots
+fig, axs = plt.subplots(2, 2, figsize=(12, 10))
+axs = axs.ravel()
+
+# Find and sort the APS files
+aps_files = sorted(glob.glob('*epoch_*.tif'))
+
+# Create a list to store the image data for colorbar normalization
+all_data = []
+for epoch in epochs_to_plot:
+    with rasterio.open(aps_files[epoch]) as src:
+        data = src.read(1)
+        all_data.append(data)
+
+# Calculate global min and max for consistent colorbar
+vmin = min(data.min() for data in all_data)
+vmax = max(data.max() for data in all_data)
+
+# Plot each image
+for idx, (epoch, date) in enumerate(zip(epochs_to_plot, selected_dates)):
+    with rasterio.open(aps_files[epoch]) as src:
+        data = src.read(1)
+        im = axs[idx].imshow(data, cmap='turbo', vmin=vmin, vmax=vmax)
+        axs[idx].set_title(f'Date: {date}')
+        axs[idx].axis('off')
+
+# Add a single colorbar for all subplots
+plt.colorbar(im, ax=axs, label='APS (rad)', orientation='horizontal', 
+             pad=0.01, aspect=40)
+
+# Adjust layout
+plt.tight_layout()
+plt.show()
+```
+
+This code will:
+1. Read the CSV file to get the dates
+2. Create a 2x2 subplot figure
+3. Read the specified TIF files (epochs 000, 005, 011, and 017)
+4. Plot each image with the 'turbo' colormap
+5. Use the same color scale for all images
+6. Show the date for each image
+7. Add a single colorbar for all subplots
+
+Make sure to:
+1. Replace 'your_csv_file.csv' with your actual CSV file path
+2. Run this code in the directory containing your TIF files
+3. Have the required packages installed (numpy, matplotlib, rasterio, pandas)

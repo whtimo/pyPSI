@@ -207,14 +207,14 @@ plot_velocities_on_sar(
 """
 ref_point = find_matching_point_index('/home/timo/Data/LasVegasDesc/ref_point.txt', '/home/timo/Data/LasVegasDesc/psc.csv', '/home/timo/Data/LasVegasDesc/ps.csv')
 
-results = load_csv_data('/home/timo/Data/LasVegasDesc/ps_results_parallel_claude_improve.csv')
+results = load_csv_data('/home/timo/Data/LasVegasDesc/ps_results_qwenplus.csv')
 
 plot_velocities_on_sar(
     results,
     ref_point,
     0.8,
     sar_image_path='/home/timo/Data/LasVegasDesc/resampled/TSX-1_0_2010-09-19.tiff',
-    output_path='/home/timo/Data/LasVegasDesc/ps_velocity_map_claude_parallel_improve.png',
+    output_path='/home/timo/Data/LasVegasDesc/ps_velocity_map_qwenplus.png',
     cmap='RdYlBu_r',
     marker_size=2,
     dpi=600

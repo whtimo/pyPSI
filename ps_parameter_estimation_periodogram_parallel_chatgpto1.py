@@ -218,7 +218,7 @@ class ParameterEstimator:
             return (pid, h_err, vel, temp_coh)
 
         # Parallelize the loop using joblib if n_jobs > 1
-        results = Parallel(n_jobs=-1, prefer="threads")(
+        results = Parallel(n_jobs=-1)( #, prefer="threads")( #Timo: threaded is slow and leads to a crash
             delayed(process_point)(p) for p in range(num_points)
         )
 

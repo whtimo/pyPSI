@@ -1,0 +1,413 @@
+ChatGPT o1 on 2025-01-24
+
+
+> I am developing Python3 code for permanent scatterer interferometry. The code I have is estimating the velocity and residual height parameters as expected, but is rather slow. I think it could become faster with parallelization. Where do you think I should parellize the code? <<<class PSIParameterEstimator:
+    def __init__(self,
+                 wavelength: float,
+                 temporal_baselines: np.ndarray,
+                 perpendicular_baselines: np.ndarray,
+                 range_distances: np.ndarray,
+                 incidence_angles: np.ndarray):
+        """
+        Initialize PSI parameter estimator
+
+        Parameters:
+        -----------
+        wavelength: float
+            Radar wavelength in meters
+        temporal_baselines: np.ndarray
+            Time differences between master and slave images in days
+        perpendicular_baselines: np.ndarray
+            Perpendicular baselines in meters
+        range_distances: np.ndarray
+            Slant range distances in meters
+        incidence_angles: np.ndarray
+            Local incidence angles in radians
+        """
+        self.wavelength = wavelength
+        self.temporal_baselines_years = temporal_baselines / 365.0 #Timo: temporal baselines need to be given in years
+        self.perpendicular_baselines = perpendicular_baselines
+        self.range_distances = range_distances
+        self.incidence_angles = incidence_angles
+
+    def estimate_parameters(self, phase_differences):
+        """
+        Estimates height error and velocity along network edges using periodogram approach.
+
+        Args:
+            phase_differences (ndarray): Complex phase differences between two PS points
+
+        Returns:
+            tuple: (height_error, velocity, temporal_coherence, residuals)
+        """
+        # Define search spaces for height error and velocity
+        height_search = np.linspace(-100, 100, 200)  # meters, adjust range as needed
+        velocity_search = np.linspace(-100, 100, 200)  # mm/year, adjust range as needed
+
+        # Initialize coherence matrix
+        coherence_matrix = np.zeros((len(height_search), len(velocity_search)))
+
+        # Calculate constants for phase conversion
+        height_to_phase = (4 * np.pi / self.wavelength) * (
+                self.perpendicular_baselines / (self.range_distances * np.sin(self.incidence_angles))
+        )
+        velocity_to_phase = (4 * np.pi / self.wavelength) * self.temporal_baselines_years
+
+        # Compute periodogram
+        for i, h in enumerate(height_search):
+            for j, v in enumerate(velocity_search):
+                # Calculate model phases
+                #phase_topo = h * height_to_phase
+                #phase_motion = v * velocity_to_phase
+                #model_phase = phase_topo + phase_motion
+                phase_topo = np.angle(np.exp(1j * h * height_to_phase))
+                phase_motion = np.angle(np.exp(1j * (v / 1000.0) * velocity_to_phase)) #Timo: velocity is given in mm
+                model_phase = np.angle(np.exp(1j * (phase_topo + phase_motion)))
+
+                # Calculate temporal coherence (equation 6.10)
+                # temporal_coherence = np.abs(
+                #     np.mean(
+                #         np.exp(1j * np.angle(phase_differences)) *
+                #         np.exp(-1j * model_phase)
+                #     )
+                # )
+
+                #Timo: The np.angle of the phase difference seems to be a mistake as these are already given in radians
+                temporal_coherence = np.abs(
+                    np.mean(
+                        np.exp(1j * phase_differences) *
+                        np.exp(-1j * model_phase)
+                    )
+                )
+                coherence_matrix[i, j] = temporal_coherence
+
+        # Find maximum coherence
+        max_idx = np.unravel_index(np.argmax(coherence_matrix), coherence_matrix.shape)
+        best_height = height_search[max_idx[0]]
+        best_velocity = velocity_search[max_idx[1]]
+        max_coherence = coherence_matrix[max_idx]
+
+        # Calculate residuals
+        best_phase_topo = np.angle(np.exp(1j * best_height * height_to_phase))
+        best_phase_motion = np.angle(np.exp(1j * (best_velocity / 1000) * velocity_to_phase))
+        best_model_phase = np.angle(np.exp(1j * (best_phase_topo + best_phase_motion)))
+        temporal_coherence2 = np.abs(
+            np.mean(
+                np.exp(1j * phase_differences) *
+                np.exp(-1j * best_model_phase)
+            )
+        )
+        # residuals = np.angle(
+        #     np.exp(1j * np.angle(phase_differences)) *
+        #     np.exp(-1j * model_phase)
+        # )
+        # Timo: The np.angle of the phase difference seems to be a mistake as these are already given in radians
+        residuals = np.angle(
+            np.exp(1j * phase_differences) *
+            np.exp(-1j * best_model_phase)
+        )
+
+        return best_height, best_velocity, max_coherence
+
+
+class ParameterEstimator:
+    def __init__(self, ps_network):
+        """
+        Estimate parameters for entire PS network
+
+        Parameters:
+        -----------
+        ps_network: dict
+            Network information including edges and phase data
+        """
+        self.ps_info = ps_info
+        self.points = ps_info['points']
+        self.parameter_estimator = PSIParameterEstimator(
+            wavelength=ps_network['wavelength'],
+            temporal_baselines=ps_network['temporal_baselines'],
+            perpendicular_baselines=ps_network['perpendicular_baselines'],
+            range_distances=ps_network['range_distances'],
+            incidence_angles=ps_network['incidence_angles']
+        )
+
+    def estimate_parameters(self, ref_point : int) -> dict:
+        """
+        Estimate parameters for all edges in the network
+
+        Returns:
+        --------
+        network_parameters: dict
+            Dictionary containing estimated parameters for each edge
+        """
+        parameters = {
+            'height_errors': {},
+            'velocities': {},
+            'temporal_coherences': {}
+        }
+
+        ref_phases = self.points.iloc[ref_point][3:].to_numpy()
+        for point_id in range(len(self.points)):
+            if point_id != ref_point:
+                phases = self.points.iloc[point_id][3:].to_numpy()
+                phase_differences = np.angle(np.exp(1j * (ref_phases - phases)))
+                height_error, velocity, temporal_coherence = (
+                    self.parameter_estimator.estimate_parameters(
+                        phase_differences
+                    )
+                )
+                print(f'{point_id} / {len(self.points)} - {height_error},{velocity},{temporal_coherence}')
+
+                parameters['height_errors'][point_id] = height_error
+                parameters['velocities'][point_id] = velocity
+                parameters['temporal_coherences'][point_id] = temporal_coherence
+            else:
+                parameters['height_errors'][point_id] = 0.0
+                parameters['velocities'][point_id] = 0.0
+                parameters['temporal_coherences'][point_id] = 1.0
+
+        return parameters
+>>>
+
+
+The main runtime bottleneck is essentially the 2D grid search (your nested `for i, h in enumerate(height_search): for j, v in enumerate(velocity_search): ...`) inside `PSIParameterEstimator.estimate_parameters()`, because you are re-computing phase residuals and coherence for every point on the (height, velocity) grid.
+
+Below are a few ways to speed that up:
+
+1. **Vectorize the (height, velocity) loops**
+   Instead of iterating over `i` and `j` with Python loops, you can turn `(height_search, velocity_search)` into a mesh (for example, with `np.meshgrid`), and then compute the model phases and coherences in full NumPy arrays. Vectorization can often provide a substantial speedup.
+
+2. **Parallelize across the (height, velocity) grid**
+   If vectorization alone is not enough or not convenient, you could distribute the inner 2D grid search across multiple cores. Common approaches are:
+   - **joblib/Parallel**: Use `joblib.Parallel` and let each process handle a slice of `(height_search, velocity_search)`.
+   - **multiprocessing or concurrent.futures**: Similar in concept—divide up the 2D grid, let each process compute coherence for part of the mesh, then combine results.
+
+3. **Parallelize across PS Points**
+   A second level of parallelism is the outer loop over points:
+   ```python
+   for point_id in range(len(self.points)):
+       ...
+       height_error, velocity, temporal_coherence = parameter_estimator.estimate_parameters(phase_differences)
+       ...
+   ```
+   If you have many PS points, you could parallelize *that* loop, letting each process handle a subset of points (each call to `estimate_parameters(...)` is a complete 2D search). This is a good approach if you already have vectorized the 2D search or if you simply prefer to keep the 2D logic the way it is.
+
+Most often, people combine vectorization and parallelizing over points. That is:
+
+- **Step 1**: Re-implement the 2D coherence calculation without Python-level for-loops, using array operations or meshgrid operations (full vectorization).
+- **Step 2**: Then, if you have a large number of points, wrap those calls in parallel using `joblib` or `multiprocessing`.
+
+In practice, you can expect that getting rid of the Python loops in the 2D search (i.e., vectorizing) will often bring substantial speedup. Once that is done, parallelizing over points is typically straightforward and scales well if you have enough memory.
+
+
+> Can you provide me with the code to do that?
+
+Below is an outline of how you can **vectorize** the main 2D grid search in `PSIParameterEstimator.estimate_parameters()` and then optionally **parallelize** the loop over PS points in your `ParameterEstimator`. The key change is to avoid Python loops over `(height_search, velocity_search)` and instead do bulk computations with NumPy arrays.
+
+---
+
+## 1) Vectorizing the 2D Grid Search
+
+Below is a revised `PSIParameterEstimator` that uses vectorized NumPy operations instead of the nested Python loops. The logic is similar to your original method, but all height and velocity candidates are expanded into 2D arrays via `np.meshgrid`. This often yields a large performance boost because it leverages low-level loops in optimized libraries (NumPy) instead of in Python.
+
+```python
+import numpy as np
+
+class PSIParameterEstimator:
+    def __init__(self,
+                 wavelength: float,
+                 temporal_baselines: np.ndarray,
+                 perpendicular_baselines: np.ndarray,
+                 range_distances: np.ndarray,
+                 incidence_angles: np.ndarray):
+        """
+        Initialize PSI parameter estimator
+
+        Parameters:
+        -----------
+        wavelength: float
+            Radar wavelength in meters
+        temporal_baselines: np.ndarray
+            Time differences between master and slave images in days
+        perpendicular_baselines: np.ndarray
+            Perpendicular baselines in meters
+        range_distances: np.ndarray
+            Slant range distances in meters
+        incidence_angles: np.ndarray
+            Local incidence angles in radians
+        """
+        # Convert baselines to years if needed
+        self.temporal_baselines_years = temporal_baselines / 365.0
+        self.perpendicular_baselines = perpendicular_baselines
+        self.range_distances = range_distances
+        self.incidence_angles = incidence_angles
+        self.wavelength = wavelength
+
+        # Precompute constants used for converting height and velocity to phase
+        self.height_to_phase = (
+            (4.0 * np.pi) / self.wavelength
+        ) * (
+            self.perpendicular_baselines
+            / (self.range_distances * np.sin(self.incidence_angles))
+        )
+        self.velocity_to_phase = (
+            (4.0 * np.pi) / self.wavelength
+        ) * self.temporal_baselines_years
+
+    def estimate_parameters(self, phase_differences: np.ndarray):
+        """
+        Estimates height error and velocity along network edges using
+        a vectorized periodogram approach.
+
+        Arguments:
+        ----------
+        phase_differences (ndarray):
+            Complex phase differences (in radians) for each interferogram.
+
+        Returns:
+        --------
+        (best_height, best_velocity, max_coherence)
+        """
+        # Define search spaces for height (meters) and velocity (mm/year)
+        height_search = np.linspace(-100, 100, 200)  # adjust as needed
+        velocity_search = np.linspace(-100, 100, 200)  # mm/year, adjust as needed
+
+        # Create a 2D mesh for each combination of (height, velocity)
+        # H, V have shape (num_heights, num_velocities)
+        H, V = np.meshgrid(height_search, velocity_search, indexing='ij')
+
+        # Expand phase_differences to shape (1, 1, N) so it can broadcast
+        # up to match (num_heights, num_velocities, N)
+        phase_differences = phase_differences.reshape((1, 1, -1))
+
+        # Compute model phase for each (height, velocity):
+        # shape of self.height_to_phase is (N,), same for self.velocity_to_phase
+        # so we add a dimension for (height, velocity).
+        # NOTE: velocity is in mm/year, so we divide by 1000 to keep consistent with your code
+        phase_topo = H[..., None] * self.height_to_phase  # (h, v, N)
+        phase_motion = (V[..., None] / 1000.0) * self.velocity_to_phase  # (h, v, N)
+        model_phase = phase_topo + phase_motion  # (h, v, N)
+
+        # Exponent of model phase
+        model_phase_exp = np.exp(1j * model_phase)  # shape (h, v, N)
+
+        # Compute coherence = |mean( exp(i * observed) * conj( model ) )|
+        # We have exp(i*phase_differences), so:
+        observed_exp = np.exp(1j * phase_differences)  # shape (1, 1, N), broadcasts
+        coherence_cube = observed_exp * np.conj(model_phase_exp)  # (h, v, N)
+        coherence = np.abs(np.mean(coherence_cube, axis=2))       # (h, v)
+
+        # Find maximum coherence
+        max_idx = np.unravel_index(np.argmax(coherence), coherence.shape)
+        best_height = H[max_idx]
+        best_velocity = V[max_idx]
+        max_coherence = coherence[max_idx]
+
+        return best_height, best_velocity, max_coherence
+```
+
+### How This Works
+
+1. **`meshgrid`:** `H` and `V` hold all possible `(height, velocity)` pairs.
+2. **Broadcasting:** We reshape your `phase_differences` to `(1, 1, N)` so it can broadcast over `(h, v, N)`.
+3. **Bulk Computations:** We do a single call (`np.exp(...)` etc.) for all pairs.
+4. **Mean and `argmax`:** We compute coherence for every pair in one shot, then find the maximum.
+
+You should see a significant speedup as soon as you remove the Python loops in favor of NumPy’s vectorized approach.
+
+---
+
+## 2) Parallelizing Over Points
+
+Once you have vectorized the height/velocity search, the next bottleneck might be your loop over all points in the `ParameterEstimator.estimate_parameters()` method:
+
+```python
+for point_id in range(len(self.points)):
+    ...
+    height_error, velocity, temporal_coherence = self.parameter_estimator.estimate_parameters(phase_differences)
+    ...
+```
+
+If you have many points, you can split this loop across multiple CPU cores. A popular approach in Python is using `joblib`. Below is a sketch:
+
+```python
+from joblib import Parallel, delayed
+
+class ParameterEstimator:
+    def __init__(self, ps_info, ps_network):
+        """
+        ps_info: dict with your point data
+        ps_network: dict with baselines etc.
+        """
+        self.ps_info = ps_info
+        self.points = ps_info['points']
+        self.parameter_estimator = PSIParameterEstimator(
+            wavelength = ps_network['wavelength'],
+            temporal_baselines = ps_network['temporal_baselines'],
+            perpendicular_baselines = ps_network['perpendicular_baselines'],
+            range_distances = ps_network['range_distances'],
+            incidence_angles = ps_network['incidence_angles']
+        )
+
+    def estimate_parameters(self, ref_point : int, n_jobs=1) -> dict:
+        """
+        Estimate parameters for all edges (PS points) in parallel if n_jobs > 1.
+
+        Arguments:
+        ----------
+        ref_point (int):
+            Reference point ID.
+
+        n_jobs (int):
+            Number of parallel jobs (processes). If 1, runs sequentially.
+
+        Returns:
+        --------
+        parameters: dict
+            Dictionary containing estimated parameters for each point.
+        """
+        num_points = len(self.points)
+        parameters = {
+            'height_errors': np.zeros(num_points),
+            'velocities': np.zeros(num_points),
+            'temporal_coherences': np.ones(num_points)  # fill default
+        }
+
+        ref_phases = self.points.iloc[ref_point][3:].to_numpy()
+
+        def process_point(pid):
+            # If it's the reference point, return defaults
+            if pid == ref_point:
+                return (pid, 0.0, 0.0, 1.0)
+
+            phases = self.points.iloc[pid][3:].to_numpy()
+            phase_differences = np.angle(np.exp(1j * (ref_phases - phases)))
+            h_err, vel, temp_coh = self.parameter_estimator.estimate_parameters(phase_differences)
+            return (pid, h_err, vel, temp_coh)
+
+        # Parallelize the loop using joblib if n_jobs > 1
+        results = Parallel(n_jobs=n_jobs, prefer="threads")(
+            delayed(process_point)(p) for p in range(num_points)
+        )
+
+        # Gather and store results
+        for pid, h_err, vel, coh in results:
+            parameters['height_errors'][pid] = h_err
+            parameters['velocities'][pid] = vel
+            parameters['temporal_coherences'][pid] = coh
+
+        return parameters
+```
+
+### Notes:
+1. **`n_jobs`**: Choose how many processes/threads to use. You can also use `prefer="processes"` if your calculations release the GIL (NumPy often does).
+2. **`process_point`**: Each point does its own single 2D search (in vectorized form).
+3. **Thread-Safety**: If data is large, be mindful of memory usage. You might also prefer “threads” vs “processes” depending on your environment.
+
+---
+
+## Summary
+
+1. **Vectorize the 2D loop** (`height_search` × `velocity_search`): This alone often provides a **big** speedup.
+2. **Parallelize across points** using `joblib` (or another library) if you need more speed.
+
+That’s it! By combining NumPy vectorization for the 2D periodogram and simple parallelism over points, your parameter estimation for Permanent Scatterers should become significantly faster.

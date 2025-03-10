@@ -115,12 +115,9 @@ def calculate_amplitude_dispersion(
 
 
 if __name__ == "__main__":
-    # Example usage
-    #input_dir = "./sar_images"  # Directory containing complex SAR images
-    #output_file = "./amplitude_dispersion.tif"  # Output file path
 
-    input_dir = "/home/timo/Data/LasVegasDesc/resampled"
-    output_file = "/home/timo/Data/LasVegasDesc/amplitude_dispersion.tif"
+    input_dir = ""
+    output_file = ""
 
     try:
         stats = calculate_amplitude_dispersion(input_dir, output_file)

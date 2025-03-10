@@ -5,7 +5,7 @@ import glob
 import pandas as pd
 
 # Read the CSV file
-df = pd.read_csv('/home/timo/Data/LasVegasDesc/ps_phases.csv')
+df = pd.read_csv('')
 dates = df.columns[3:].tolist()  # Get dates from columns, skipping first 3 columns
 
 # Get the dates for the epochs we want to visualize
@@ -19,7 +19,7 @@ axs = [fig.add_subplot(gs[0, 0]), fig.add_subplot(gs[0, 1]),
        fig.add_subplot(gs[1, 0]), fig.add_subplot(gs[1, 1])]
 
 # Find and sort the APS files
-aps_files = sorted(glob.glob('/home/timo/Data/LasVegasDesc/aps_filtered/*epoch_*.tif'))
+aps_files = sorted(glob.glob('directory/*epoch_*.tif'))
 
 # Create a list to store the image data for colorbar normalization
 all_data = []
@@ -46,6 +46,6 @@ plt.colorbar(im, cax=cbar_ax, label='APS (rad)')
 
 # Adjust layout
 plt.tight_layout()
-plt.savefig('/home/timo/Data/LasVegasDesc/aps_figure.png', dpi=600, bbox_inches='tight')
+plt.savefig('', dpi=600, bbox_inches='tight')
 
 #plt.show()

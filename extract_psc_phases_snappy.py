@@ -1,5 +1,3 @@
-import sys
-sys.path.append('/home/timo/.snap/snap-python')
 import esa_snappy
 import pandas as pd
 import numpy as np
@@ -89,13 +87,10 @@ def extract_ps_phases(ps_csv_path: str,
 # Example usage:
 if __name__ == "__main__":
     # Define paths
-    # PS_CSV_PATH = "path/to/ps_coordinates.csv"
-    # INTERFEROGRAM_DIR = "path/to/interferogram/directory"
-    # OUTPUT_CSV_PATH = "path/to/output/ps_phases.csv"
-    PS_CSV_PATH = "/home/timo/Data/LVS1_snap/psc.csv"
-    input_dim_file = '/home/timo/Data/LVS1_snap/topo_subset/subset_0_of_S1A_IW_SLC__1SDV_20230702T134404_20230702T134432_049245_05EBEA_A4DF_Orb_Stack_esd_deb_ifg.dim'
+    PS_CSV_PATH = ""
+    input_dim_file = ''
 
-    OUTPUT_CSV_PATH = "/home/timo/Data/LVS1_snap/psc_phases.csv"
+    OUTPUT_CSV_PATH = ""
 
     # Extract phases and save to CSV
     extract_ps_phases(PS_CSV_PATH, input_dim_file, OUTPUT_CSV_PATH)

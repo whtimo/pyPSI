@@ -359,26 +359,25 @@ class PSInfo:
 
 start_time = time.perf_counter()
 # Read the CSV file
-df_psc = pd.read_csv('/home/timo/Projects/LasVegasDesc/ps_test.csv')
-df_ps = pd.read_csv('/home/timo/Projects/LasVegasDesc/ps_phases_test.csv')
+df_psc = pd.read_csv('')
+df_ps = pd.read_csv('')
 # Get the column names that are dates (skip the first 3 columns)
 date_columns = df_ps.columns[3:]
 
 # Convert the date strings to datetime objects and store in a list
 dates = [datetime.strptime(date, '%Y-%m-%d') for date in date_columns]
 
-ref_point = 0
-#ref_point = find_matching_point_index('/home/timo/Projects/LasVegasDesc/ref_point.txt', '/home/timo/Projects/LasVegasDesc/psc.csv', '/home/timo/Projects/LasVegasDesc/ps.csv')
+#ref_point = 0
+ref_point = find_matching_point_index('', '', '')
 #print("Reading the network") # Adding some comments because it is a long process
 #ps_network = PSNetwork(dates, "/path/to/xml/files")
-ps_info = PSInfo(dates, "/home/timo/Projects/LasVegasDesc/topo",  "/home/timo/Projects/LasVegasDesc/ps_phases_test.csv")
+ps_info = PSInfo(dates, "",  "")
 
 parameter_estimator = ParameterEstimator(ps_info)
 print("Start parameter estimation") # Adding some comments because it is a long process
 params = parameter_estimator.estimate_parameters(ref_point)
 print("Save parameters") # Adding some comments because it is a long process
-#save_network_parameters(params, ps_network, '/home/timo/Data/LasVegasDesc/ps_results3_perio_year.h5')
-save_point_data_to_csv("/home/timo/Projects/LasVegasDesc/ps_phases_test.csv", "/home/timo/Projects/LasVegasDesc/ps_results_parallel_chatgpt_test.csv", params)
+save_point_data_to_csv("", "", params)
 end_time = time.perf_counter()
 elapsed_time = end_time - start_time
 print(f"Elapsed time: {elapsed_time:.4f} seconds")

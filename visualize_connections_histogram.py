@@ -80,11 +80,11 @@ def plot_temporal_coherence_histogram(params):
     plt.tight_layout()
 
     # Show plot
-    plt.savefig('/home/timo/Data/LasVegasDesc/histo_psc_lambda.png', dpi=600, bbox_inches='tight')
+    plt.savefig('', dpi=600, bbox_inches='tight')
     #plt.show()
 
 
 # Load and plot
-filename = '/home/timo/Data/LasVegasDesc/psc_results_lambda.h5'
+filename = ''
 params = load_network_parameters(filename)
 plot_temporal_coherence_histogram(params)

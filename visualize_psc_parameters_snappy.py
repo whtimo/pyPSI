@@ -1,5 +1,3 @@
-import sys
-sys.path.append('/home/timo/.snap/snap-python')
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -188,12 +186,12 @@ plot_velocities_on_sar(
     dpi=300
 )
 """
-input_dim_file = '/home/timo/Data/LVS1_snap/subset/subset_0_of_S1A_IW_SLC__1SDV_20230702T134404_20230702T134432_049245_05EBEA_A4DF_Orb_Stack_esd_deb.dim'
+input_dim_file = ''
 
 
-results = load_path_parameters('/home/timo/Data/LVS1_snap/ps_results_path.h5')
+results = load_path_parameters('')
 plot_velocities_on_sar(
     results,
     dim_image_path=input_dim_file,
-    output_path='/home/timo/Data/LVS1_snap/psc_parameters.png',
+    output_path='',
     marker_size=5, dpi=600)

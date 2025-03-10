@@ -4,7 +4,7 @@ from matplotlib.colors import TwoSlopeNorm
 import rasterio
 
 # Read the TIFF file
-with rasterio.open('/home/timo/Projects/WuhanTSXAirport/shpcount.tiff') as src:
+with rasterio.open('') as src:
     data = src.read(1)  # Read the first band
 
 # Create the figure and axis
@@ -22,6 +22,6 @@ plt.title('Brotherhood Pixels Distribution')
 
 # Adjust layout to prevent cutting off labels
 plt.tight_layout()
-plt.savefig('/home/timo/Projects/WuhanTSXAirport/shp_wuhan_airport.png', dpi=300, bbox_inches='tight')
+plt.savefig('', dpi=300, bbox_inches='tight')
 # Show the plot
 #plt.show()

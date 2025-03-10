@@ -296,7 +296,7 @@ shp_mask = select_shp(amplitude_stack, center_pixel)
 ds_candidates, shp_counts = process_ds_candidates(amplitude_stack)
 """
 
-amplitude_stack = load_amplitude_data('/home/timo/Projects/WuhanTSXAirport/resample')
+amplitude_stack = load_amplitude_data('')
 #center_pixel = (100, 100)  # Example coordinates
 #shp_mask = select_shp(amplitude_stack, center_pixel, window_size=20)
 
@@ -306,4 +306,4 @@ end_time = time.perf_counter()
 elapsed_time = end_time - start_time
 print(f"Elapsed time: {elapsed_time:.4f} seconds")
 
-save_shp_counts_simple(shp_counts, '/home/timo/Projects/WuhanTSXAirport/shpcount.tiff')
+save_shp_counts_simple(shp_counts, '')

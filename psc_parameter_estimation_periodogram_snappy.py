@@ -1,5 +1,3 @@
-import sys
-sys.path.append('/home/timo/.snap/snap-python')
 import numpy as np
 from scipy.optimize import least_squares
 from typing import Tuple, List, Dict, Union
@@ -347,8 +345,8 @@ class PSNetwork:
 
 # Read the CSV file
 #df = pd.read_csv('your_file.csv')
-df = pd.read_csv('/home/timo/Data/LVS1_snap/psc_phases.csv')
-input_dim_file = '/home/timo/Data/LVS1_snap/topo_subset/subset_0_of_S1A_IW_SLC__1SDV_20230702T134404_20230702T134432_049245_05EBEA_A4DF_Orb_Stack_esd_deb_ifg.dim'
+df = pd.read_csv('')
+input_dim_file = ''
 
 # Get the column names that are dates (skip the first 3 columns)
 date_columns = df.columns[3:]
@@ -358,13 +356,13 @@ dates = [datetime.strptime(date, '%Y-%m-%d') for date in date_columns]
 
 print("Reading the network") # Adding some comments because it is a long process
 #ps_network = PSNetwork(dates, "/path/to/xml/files")
-ps_network = PSNetwork(dates, input_dim_file, "/home/timo/Data/LVS1_snap/triangulation_results.csv", "/home/timo/Data/LVS1_snap/psc_phases.csv")
+ps_network = PSNetwork(dates, input_dim_file, "", "")
 
 parameter_estimator = NetworkParameterEstimator(ps_network)
 print("Start parameter estimation") # Adding some comments because it is a long process
 params = parameter_estimator.estimate_network_parameters()
 print("Save parameters") # Adding some comments because it is a long process
-save_network_parameters(params, ps_network, '/home/timo/Data/LVS1_snap/ps_results.h5')
+save_network_parameters(params, ps_network, '')
 
 
 

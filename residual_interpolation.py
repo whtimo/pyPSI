@@ -323,8 +323,8 @@ master_image_height = 2700
 grid_size = (master_image_width, master_image_height)
 
 # Set paths
-input_file = Path('/home/timo/Data/LVS1_snap/ps_results_path.h5')
-output_dir = Path('/home/timo/Data/LVS1_snap/aps')
+input_file = Path('')
+output_dir = Path('')
 output_dir.mkdir(exist_ok=True)
 
 # Load data

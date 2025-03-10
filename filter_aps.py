@@ -70,14 +70,8 @@ def process_phase_residuals(input_dir, output_dir, spatial_filter_size):
             dst.write(wrapped_phases[i].astype(np.float32), 1)
 
 # Example usage:
-# process_phase_residuals(
-#     input_dir='path/to/input/directory',
-#     output_dir='path/to/output/directory',
-#     spatial_filter_size=5.0
-# )
-
 process_phase_residuals(
-    input_dir='/home/timo/Data/LVS1_snap/aps',
-    output_dir='/home/timo/Data/LVS1_snap/aps_filtered',
-    spatial_filter_size=200.0
+    input_dir='path/to/input/directory',
+    output_dir='path/to/output/directory',
+    spatial_filter_size=5.0
 )

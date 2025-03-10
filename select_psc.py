@@ -71,8 +71,8 @@ if __name__ == "__main__":
     # window_x = 5  # Example window size in x direction
     # window_y = 5  # Example window size in y direction
 
-    input_path = "/home/timo/Data/LVS1_snap/amplitude_dispersion.tif"
-    output_path = "/home/timo/Data/LVS1_snap/ps.csv"
+    input_path = ""
+    output_path = ""
     threshold = 0.25
     window_x = 3
     window_y = 3

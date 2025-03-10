@@ -8,7 +8,7 @@ import numpy.ma as ma
 # SAR image
 
 #with rasterio.open('sar_image.tiff') as src:
-with rasterio.open('/home/timo/Data/LasVegasDesc/resampled/TSX-1_0_2010-09-19.tiff') as src:
+with rasterio.open('') as src:
     # Read complex data
     sar_data = src.read(1)
     # Calculate amplitude
@@ -19,12 +19,12 @@ with rasterio.open('/home/timo/Data/LasVegasDesc/resampled/TSX-1_0_2010-09-19.ti
 
 # Read points and triangles
 #points_df = pd.read_csv('points.csv')
-points_df = pd.read_csv('/home/timo/Data/LasVegasDesc/psc.csv')
+points_df = pd.read_csv('')
 # Rename the unnamed first column to 'point_id'
 points_df = points_df.rename(columns={points_df.columns[0]: 'point_id'})
 
 #triangles_df = pd.read_csv('triangulation_results.csv')
-triangles_df = pd.read_csv('/home/timo/Data/LasVegasDesc/triangulation_results.csv')
+triangles_df = pd.read_csv('')
 
 # Create the plot
 plt.figure(figsize=(12, 8))

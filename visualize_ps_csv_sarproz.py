@@ -201,14 +201,14 @@ plot_velocities_on_sar(
 )
 """
 results = load_and_combine_csv_data(
-    velocity_csv='/home/timo/Data/LasVegasDesc_old/deftrend2.csv',
-    samples_csv='/home/timo/Data/LasVegasDesc_old/sample.csv',
-    lines_csv='/home/timo/Data/LasVegasDesc_old/line.csv'
+    velocity_csv='',
+    samples_csv='',
+    lines_csv=''
 )
 plot_velocities_on_sar(
     results,
-    sar_image_path='/home/timo/Data/LasVegasDesc_old/resampled/TSX-1_0_2010-09-19.tiff',
-    output_path='/home/timo/Data/LasVegasDesc/sarproz_velocity_map.png',
+    sar_image_path='',
+    output_path='',
     cmap='RdYlBu_r',
     marker_size=5,
     dpi=600

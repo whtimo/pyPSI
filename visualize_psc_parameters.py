@@ -169,9 +169,9 @@ plot_velocities_on_sar(
 )
 """
 
-results = load_path_parameters('/home/timo/Data/LasVegasDesc/ps_results_path.h5')
+results = load_path_parameters('')
 plot_velocities_on_sar(
     results,
-    sar_image_path='/home/timo/Data/LasVegasDesc/resampled/TSX-1_0_2010-09-19.tiff',
-    output_path='/home/timo/Data/LasVegasDesc/psc_parameters.png',
+    sar_image_path='',
+    output_path='',
     marker_size=5, dpi=600)

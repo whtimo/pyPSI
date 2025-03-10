@@ -1,10 +1,9 @@
-import sys
+
 import numpy as np
-sys.path.append('/home/timo/.snap/snap-python')
 import esa_snappy
 
 # Read the .dim file
-product = esa_snappy.ProductIO.readProduct('/home/timo/Data/LVS1_snap/deburst/S1A_IW_SLC__1SDV_20230702T134404_20230702T134432_049245_05EBEA_A4DF_Orb_Stack_esd_deb.dim')
+product = esa_snappy.ProductIO.readProduct('')
 
 # Get the width and height
 width = product.getSceneRasterWidth()

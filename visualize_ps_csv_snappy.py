@@ -1,5 +1,3 @@
-import sys
-sys.path.append('/home/timo/.snap/snap-python')
 import esa_snappy
 import matplotlib.pyplot as plt
 import numpy as np
@@ -209,18 +207,18 @@ plot_velocities_on_sar(
     dpi=300
 )
 """
-input_dim_file = '/home/timo/Data/LVS1_snap/subset/subset_0_of_S1A_IW_SLC__1SDV_20230702T134404_20230702T134432_049245_05EBEA_A4DF_Orb_Stack_esd_deb.dim'
+input_dim_file = ''
 
-ref_point = find_matching_point_index('/home/timo/Data/LVS1_snap/ref_point.txt', '/home/timo/Data/LVS1_snap/psc.csv', '/home/timo/Data/LVS1_snap/ps.csv')
+ref_point = find_matching_point_index('', '', '')
 
-results = load_csv_data('/home/timo/Data/LVS1_snap/ps_results.csv')
+results = load_csv_data('')
 
 plot_velocities_on_sar(
     results,
     ref_point,
     0.8,
     input_dim_file,
-    output_path='/home/timo/Data/LVS1_snap/ps_velocity_map_LV_snappy.png',
+    output_path='',
     cmap='RdYlBu_r',
     marker_size=2,
     dpi=600

@@ -122,8 +122,8 @@ def calculate_amplitude_dispersion_snap(
 
 if __name__ == "__main__":
     # Example usage
-    input_dim_file = '/home/timo/Data/LVS1_snap/subset/subset_0_of_S1A_IW_SLC__1SDV_20230702T134404_20230702T134432_049245_05EBEA_A4DF_Orb_Stack_esd_deb.dim'
-    output_file = '/home/timo/Data/LVS1_snap/amplitude_dispersion.tif'
+    input_dim_file = ''
+    output_file = ''
 
     try:
         stats = calculate_amplitude_dispersion_snap(input_dim_file, output_file)

@@ -1,5 +1,3 @@
-import sys
-sys.path.append('/home/timo/.snap/snap-python')
 import numpy as np
 from scipy.optimize import least_squares
 from typing import Tuple, List, Dict, Union
@@ -359,11 +357,11 @@ class PSInfo:
         else:
             raise KeyError(f"Key {key} not found in PSNetwork")
 
-input_dim_file = '/home/timo/Data/LVS1_snap/topo_subset/subset_0_of_S1A_IW_SLC__1SDV_20230702T134404_20230702T134432_049245_05EBEA_A4DF_Orb_Stack_esd_deb_ifg.dim'
+input_dim_file = ''
 
 # Read the CSV file
-df_psc = pd.read_csv('/home/timo/Data/LVS1_snap/ps.csv')
-df_ps = pd.read_csv('/home/timo/Data/LVS1_snap/ps_phases.csv')
+df_psc = pd.read_csv('')
+df_ps = pd.read_csv('')
 # Get the column names that are dates (skip the first 3 columns)
 date_columns = df_ps.columns[3:]
 
@@ -371,17 +369,16 @@ date_columns = df_ps.columns[3:]
 dates = [datetime.strptime(date, '%Y-%m-%d') for date in date_columns]
 
 #ref_point = 0
-ref_point = find_matching_point_index('/home/timo/Data/LVS1_snap/ref_point.txt', '/home/timo/Data/LVS1_snap/psc.csv', '/home/timo/Data/LVS1_snap/ps.csv')
+ref_point = find_matching_point_index('', '', '')
 #print("Reading the network") # Adding some comments because it is a long process
 #ps_network = PSNetwork(dates, "/path/to/xml/files")
-ps_info = PSInfo(dates, input_dim_file,  "/home/timo/Data/LVS1_snap/ps_phases.csv")
+ps_info = PSInfo(dates, input_dim_file,  "")
 
 parameter_estimator = ParameterEstimator(ps_info)
 print("Start parameter estimation") # Adding some comments because it is a long process
 params = parameter_estimator.estimate_parameters(ref_point)
 print("Save parameters") # Adding some comments because it is a long process
-#save_network_parameters(params, ps_network, '/home/timo/Data/LasVegasDesc/ps_results3_perio_year.h5')
-save_point_data_to_csv("/home/timo/Data/LVS1_snap/ps_phases.csv", "/home/timo/Data/LVS1_snap/ps_results.csv", params)
+save_point_data_to_csv("", "", params)
 
 
 

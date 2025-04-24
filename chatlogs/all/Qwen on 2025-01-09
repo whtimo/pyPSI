@@ -1,0 +1,576 @@
+QWen Max on 2025-01-09
+
+> I am developing Python3 code for permanent scatterer interferometry. The code I have is estimating the velocity and residual height parameters as expected, but is rather slow. I think it could become faster with parallelization. Where do you think I should parellize the code? <<<class PSIParameterEstimator:
+    def __init__(self,
+                 wavelength: float,
+                 temporal_baselines: np.ndarray,
+                 perpendicular_baselines: np.ndarray,
+                 range_distances: np.ndarray,
+                 incidence_angles: np.ndarray):
+        """
+        Initialize PSI parameter estimator
+
+        Parameters:
+        -----------
+        wavelength: float
+            Radar wavelength in meters
+        temporal_baselines: np.ndarray
+            Time differences between master and slave images in days
+        perpendicular_baselines: np.ndarray
+            Perpendicular baselines in meters
+        range_distances: np.ndarray
+            Slant range distances in meters
+        incidence_angles: np.ndarray
+            Local incidence angles in radians
+        """
+        self.wavelength = wavelength
+        self.temporal_baselines_years = temporal_baselines / 365.0 #Timo: temporal baselines need to be given in years
+        self.perpendicular_baselines = perpendicular_baselines
+        self.range_distances = range_distances
+        self.incidence_angles = incidence_angles
+
+    def estimate_parameters(self, phase_differences):
+        """
+        Estimates height error and velocity along network edges using periodogram approach.
+
+        Args:
+            phase_differences (ndarray): Complex phase differences between two PS points
+
+        Returns:
+            tuple: (height_error, velocity, temporal_coherence, residuals)
+        """
+        # Define search spaces for height error and velocity
+        height_search = np.linspace(-100, 100, 200)  # meters, adjust range as needed
+        velocity_search = np.linspace(-100, 100, 200)  # mm/year, adjust range as needed
+
+        # Initialize coherence matrix
+        coherence_matrix = np.zeros((len(height_search), len(velocity_search)))
+
+        # Calculate constants for phase conversion
+        height_to_phase = (4 * np.pi / self.wavelength) * (
+                self.perpendicular_baselines / (self.range_distances * np.sin(self.incidence_angles))
+        )
+        velocity_to_phase = (4 * np.pi / self.wavelength) * self.temporal_baselines_years
+
+        # Compute periodogram
+        for i, h in enumerate(height_search):
+            for j, v in enumerate(velocity_search):
+                # Calculate model phases
+                #phase_topo = h * height_to_phase
+                #phase_motion = v * velocity_to_phase
+                #model_phase = phase_topo + phase_motion
+                phase_topo = np.angle(np.exp(1j * h * height_to_phase))
+                phase_motion = np.angle(np.exp(1j * (v / 1000.0) * velocity_to_phase)) #Timo: velocity is given in mm
+                model_phase = np.angle(np.exp(1j * (phase_topo + phase_motion)))
+
+                # Calculate temporal coherence (equation 6.10)
+                # temporal_coherence = np.abs(
+                #     np.mean(
+                #         np.exp(1j * np.angle(phase_differences)) *
+                #         np.exp(-1j * model_phase)
+                #     )
+                # )
+
+                #Timo: The np.angle of the phase difference seems to be a mistake as these are already given in radians
+                temporal_coherence = np.abs(
+                    np.mean(
+                        np.exp(1j * phase_differences) *
+                        np.exp(-1j * model_phase)
+                    )
+                )
+                coherence_matrix[i, j] = temporal_coherence
+
+        # Find maximum coherence
+        max_idx = np.unravel_index(np.argmax(coherence_matrix), coherence_matrix.shape)
+        best_height = height_search[max_idx[0]]
+        best_velocity = velocity_search[max_idx[1]]
+        max_coherence = coherence_matrix[max_idx]
+
+        # Calculate residuals
+        best_phase_topo = np.angle(np.exp(1j * best_height * height_to_phase))
+        best_phase_motion = np.angle(np.exp(1j * (best_velocity / 1000) * velocity_to_phase))
+        best_model_phase = np.angle(np.exp(1j * (best_phase_topo + best_phase_motion)))
+        temporal_coherence2 = np.abs(
+            np.mean(
+                np.exp(1j * phase_differences) *
+                np.exp(-1j * best_model_phase)
+            )
+        )
+        # residuals = np.angle(
+        #     np.exp(1j * np.angle(phase_differences)) *
+        #     np.exp(-1j * model_phase)
+        # )
+        # Timo: The np.angle of the phase difference seems to be a mistake as these are already given in radians
+        residuals = np.angle(
+            np.exp(1j * phase_differences) *
+            np.exp(-1j * best_model_phase)
+        )
+
+        return best_height, best_velocity, max_coherence
+
+
+class ParameterEstimator:
+    def __init__(self, ps_network):
+        """
+        Estimate parameters for entire PS network
+
+        Parameters:
+        -----------
+        ps_network: dict
+            Network information including edges and phase data
+        """
+        self.ps_info = ps_info
+        self.points = ps_info['points']
+        self.parameter_estimator = PSIParameterEstimator(
+            wavelength=ps_network['wavelength'],
+            temporal_baselines=ps_network['temporal_baselines'],
+            perpendicular_baselines=ps_network['perpendicular_baselines'],
+            range_distances=ps_network['range_distances'],
+            incidence_angles=ps_network['incidence_angles']
+        )
+
+    def estimate_parameters(self, ref_point : int) -> dict:
+        """
+        Estimate parameters for all edges in the network
+
+        Returns:
+        --------
+        network_parameters: dict
+            Dictionary containing estimated parameters for each edge
+        """
+        parameters = {
+            'height_errors': {},
+            'velocities': {},
+            'temporal_coherences': {}
+        }
+
+        ref_phases = self.points.iloc[ref_point][3:].to_numpy()
+        for point_id in range(len(self.points)):
+            if point_id != ref_point:
+                phases = self.points.iloc[point_id][3:].to_numpy()
+                phase_differences = np.angle(np.exp(1j * (ref_phases - phases)))
+                height_error, velocity, temporal_coherence = (
+                    self.parameter_estimator.estimate_parameters(
+                        phase_differences
+                    )
+                )
+                print(f'{point_id} / {len(self.points)} - {height_error},{velocity},{temporal_coherence}')
+
+                parameters['height_errors'][point_id] = height_error
+                parameters['velocities'][point_id] = velocity
+                parameters['temporal_coherences'][point_id] = temporal_coherence
+            else:
+                parameters['height_errors'][point_id] = 0.0
+                parameters['velocities'][point_id] = 0.0
+                parameters['temporal_coherences'][point_id] = 1.0
+
+        return parameters
+>>>
+
+
+
+To speed up your code, you can parallelize the estimate_parameters method in the ParameterEstimator class. This method iterates over all points in the network and calls the estimate_parameters method of the PSIParameterEstimator for each point. Since these calculations are independent, they can be executed in parallel.
+
+Here's a step-by-step guide to parallelizing this part of your code using the concurrent.futures module, which is a high-level interface for asynchronously executing callables:
+
+    Import the necessary modules:
+
+import concurrent.futures
+
+Refactor the estimate_parameters method in the ParameterEstimator class to use a helper function:
+
+class ParameterEstimator:
+
+    def __init__(self, ps_network):
+
+        """
+
+        Estimate parameters for entire PS network
+
+
+        Parameters:
+
+        -----------
+
+        ps_network: dict
+
+            Network information including edges and phase data
+
+        """
+
+        self.ps_info = ps_network  # Corrected variable name
+
+        self.points = ps_network['points']  # Assuming 'points' is a key in ps_network
+
+        self.parameter_estimator = PSIParameterEstimator(
+
+            wavelength=ps_network['wavelength'],
+
+            temporal_baselines=ps_network['temporal_baselines'],
+
+            perpendicular_baselines=ps_network['perpendicular_baselines'],
+
+            range_distances=ps_network['range_distances'],
+
+            incidence_angles=ps_network['incidence_angles']
+
+        )
+
+
+    def _estimate_single_point(self, point_id, ref_phases):
+
+        if point_id != ref_point:
+
+            phases = self.points.iloc[point_id][3:].to_numpy()
+
+            phase_differences = np.angle(np.exp(1j * (ref_phases - phases)))
+
+            height_error, velocity, temporal_coherence = (
+
+                self.parameter_estimator.estimate_parameters(
+
+                    phase_differences
+
+                )
+
+            )
+
+            return {
+
+                'height_errors': {point_id: height_error},
+
+                'velocities': {point_id: velocity},
+
+                'temporal_coherences': {point_id: temporal_coherence}
+
+            }
+
+        else:
+
+            return {
+
+                'height_errors': {point_id: 0.0},
+
+                'velocities': {point_id: 0.0},
+
+                'temporal_coherences': {point_id: 1.0}
+
+            }
+
+
+    def estimate_parameters(self, ref_point: int) -> dict:
+
+        """
+
+        Estimate parameters for all edges in the network
+
+
+        Returns:
+
+        --------
+
+        network_parameters: dict
+
+            Dictionary containing estimated parameters for each edge
+
+        """
+
+        parameters = {
+
+            'height_errors': {},
+
+            'velocities': {},
+
+            'temporal_coherences': {}
+
+        }
+
+
+        ref_phases = self.points.iloc[ref_point][3:].to_numpy()
+
+
+        with concurrent.futures.ProcessPoolExecutor() as executor:
+
+            futures = [executor.submit(self._estimate_single_point, point_id, ref_phases) for point_id in range(len(self.points))]
+
+            for future in concurrent.futures.as_completed(futures):
+
+                result = future.result()
+
+                parameters['height_errors'].update(result['height_errors'])
+
+                parameters['velocities'].update(result['velocities'])
+
+                parameters['temporal_coherences'].update(result['temporal_coherences'])
+
+
+            return parameters
+
+    Explanation:
+        The _estimate_single_point method is a helper function that performs the parameter estimation for a single point.
+        The estimate_parameters method uses a ProcessPoolExecutor to parallelize the execution of the _estimate_single_point method across all points.
+        The results from each future are collected and combined into the final parameters dictionary.
+
+    Usage:
+        You can now call the estimate_parameters method as before, but it will run in parallel, potentially significantly reducing the overall computation time.
+
+This approach should help you achieve a significant speedup, especially if you have a multi-core processor. Make sure to test the code with a small subset of your data first to ensure everything works as expected.
+
+
+Answer of Qwen Plus (2024-12-20):
+
+To speed up your code using parallelization, you should focus on the parts of the code that are computationally intensive and can be executed independently. In your case, the most time-consuming part appears to be the estimate_parameters method within the PSIParameterEstimator class, particularly the nested loops over height_search and velocity_search.
+
+Additionally, the outer loop in the estimate_parameters method of the ParameterEstimator class, which iterates over all points in the network, can also benefit from parallelization.
+
+Here’s how you can approach parallelizing these sections:
+1. Parallelize the Nested Loops in estimate_parameters
+
+The nested loops over height_search and velocity_search can be parallelized using libraries like joblib or multiprocessing. Here's an example using joblib:
+
+from joblib import Parallel, delayed
+
+
+class PSIParameterEstimator:
+
+    # ... (rest of the class remains the same until estimate_parameters)
+
+
+    def estimate_parameters(self, phase_differences):
+
+        """
+
+        Estimates height error and velocity along network edges using periodogram approach.
+
+        """
+
+        # Define search spaces for height error and velocity
+
+        height_search = np.linspace(-100, 100, 200)  # meters, adjust range as needed
+
+        velocity_search = np.linspace(-100, 100, 200)  # mm/year, adjust range as needed
+
+
+        # Initialize coherence matrix
+
+        coherence_matrix = np.zeros((len(height_search), len(velocity_search)))
+
+
+        # Calculate constants for phase conversion
+
+        height_to_phase = (4 * np.pi / self.wavelength) * (
+
+                self.perpendicular_baselines / (self.range_distances * np.sin(self.incidence_angles))
+
+        )
+
+        velocity_to_phase = (4 * np.pi / self.wavelength) * self.temporal_baselines_years
+
+
+        def compute_coherence(i, j):
+
+            h = height_search[i]
+
+            v = velocity_search[j]
+
+
+            phase_topo = np.angle(np.exp(1j * h * height_to_phase))
+
+            phase_motion = np.angle(np.exp(1j * (v / 1000.0) * velocity_to_phase))
+
+            model_phase = np.angle(np.exp(1j * (phase_topo + phase_motion)))
+
+
+            temporal_coherence = np.abs(
+
+                np.mean(
+
+                    np.exp(1j * phase_differences) *
+
+                    np.exp(-1j * model_phase)
+
+                )
+
+            )
+
+            return i, j, temporal_coherence
+
+
+        results = Parallel(n_jobs=-1)(
+
+            delayed(compute_coherence)(i, j)
+
+            for i in range(len(height_search))
+
+            for j in range(len(velocity_search))
+
+        )
+
+
+        for i, j, coherence in results:
+
+            coherence_matrix[i, j] = coherence
+
+
+        # Find maximum coherence
+
+        max_idx = np.unravel_index(np.argmax(coherence_matrix), coherence_matrix.shape)
+
+        best_height = height_search[max_idx[0]]
+
+        best_velocity = velocity_search[max_idx[1]]
+
+        max_coherence = coherence_matrix[max_idx]
+
+
+        # Calculate residuals
+
+        best_phase_topo = np.angle(np.exp(1j * best_height * height_to_phase))
+
+        best_phase_motion = np.angle(np.exp(1j * (best_velocity / 1000) * velocity_to_phase))
+
+        best_model_phase = np.angle(np.exp(1j * (best_phase_topo + best_phase_motion)))
+
+        temporal_coherence2 = np.abs(
+
+            np.mean(
+
+                np.exp(1j * phase_differences) *
+
+                np.exp(-1j * best_model_phase)
+
+            )
+
+        )
+
+        residuals = np.angle(
+
+            np.exp(1j * phase_differences) *
+
+            np.exp(-1j * best_model_phase)
+
+        )
+
+
+        return best_height, best_velocity, max_coherence
+
+2. Parallelize the Outer Loop in ParameterEstimator
+
+The outer loop in the estimate_parameters method of the ParameterEstimator class can also be parallelized. This loop iterates over all points in the network and can be executed independently for each point.
+
+from joblib import Parallel, delayed
+
+
+class ParameterEstimator:
+
+    def __init__(self, ps_network):
+
+        self.ps_info = ps_network['points']
+
+        self.parameter_estimator = PSIParameterEstimator(
+
+            wavelength=ps_network['wavelength'],
+
+            temporal_baselines=ps_network['temporal_baselines'],
+
+            perpendicular_baselines=ps_network['perpendicular_baselines'],
+
+            range_distances=ps_network['range_distances'],
+
+            incidence_angles=ps_network['incidence_angles']
+
+        )
+
+
+    def estimate_parameters_for_point(self, point_id, ref_phases):
+
+        if point_id == ref_point:
+
+            return {
+
+                'height_error': 0.0,
+
+                'velocity': 0.0,
+
+                'temporal_coherence': 1.0
+
+            }
+
+
+        phases = self.ps_info.iloc[point_id][3:].to_numpy()
+
+        phase_differences = np.angle(np.exp(1j * (ref_phases - phases)))
+
+        height_error, velocity, temporal_coherence = (
+
+            self.parameter_estimator.estimate_parameters(phase_differences)
+
+        )
+
+        print(f'{point_id} / {len(self.ps_info)} - {height_error},{velocity},{temporal_coherence}')
+
+
+        return {
+
+            'height_error': height_error,
+
+            'velocity': velocity,
+
+            'temporal_coherence': temporal_coherence
+
+        }
+
+
+    def estimate_parameters(self, ref_point: int) -> dict:
+
+        parameters = {
+
+            'height_errors': {},
+
+            'velocities': {},
+
+            'temporal_coherences': {}
+
+        }
+
+
+        ref_phases = self.ps_info.iloc[ref_point][3:].to_numpy()
+
+
+        results = Parallel(n_jobs=-1)(
+
+            delayed(self.estimate_parameters_for_point)(point_id, ref_phases)
+
+            for point_id in range(len(self.ps_info))
+
+        )
+
+
+        for point_id, result in enumerate(results):
+
+            parameters['height_errors'][point_id] = result['height_error']
+
+            parameters['velocities'][point_id] = result['velocity']
+
+            parameters['temporal_coherences'][point_id] = result['temporal_coherence']
+
+
+        return parameters
+
+Notes:
+
+    Parallelization Overhead: Be mindful of the overhead introduced by parallelization. For small datasets, the overhead might outweigh the benefits. Always profile your code to ensure that parallelization is beneficial.
+    Memory Usage: Parallel execution can increase memory usage, especially when using multiple processes. Ensure that your system has enough memory to handle the parallel tasks.
+    Thread Safety: The above code uses joblib, which can use either multi-threading or multi-processing. Depending on your specific use case and Python environment, one might be more efficient than the other.
+
+By parallelizing these two sections, you should see a significant improvement in the performance of your code, especially for large datasets.
+
+
+
+
+
+
+
+
+
+

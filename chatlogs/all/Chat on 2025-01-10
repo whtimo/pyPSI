@@ -1,0 +1,48 @@
+Claude 3.5 Sonnet on 2025-01-10
+
+> I have a tiff file containing the number of brotherhood pixels of statistically homogenous pixels as uint16 values. I want to display that in Python3, with a color scale like turbo or something similar. The legend should be there as well. Please only show me the code and do not run it in the code interpreter.
+
+I'll provide you with Python code that reads and displays a TIFF file with a turbo colormap and includes a legend. Here's the code without execution:
+
+```python
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.colors import TwoSlopeNorm
+import rasterio
+
+# Read the TIFF file
+with rasterio.open('your_file.tiff') as src:
+    data = src.read(1)  # Read the first band
+
+# Create the figure and axis
+fig, ax = plt.subplots(figsize=(10, 8))
+
+# Create the image plot with turbo colormap
+im = ax.imshow(data, cmap='turbo')
+
+# Add colorbar
+cbar = plt.colorbar(im)
+cbar.set_label('Pixel Values', rotation=270, labelpad=15)
+
+# Add title
+plt.title('Brotherhood Pixels Distribution')
+
+# Adjust layout to prevent cutting off labels
+plt.tight_layout()
+
+# Show the plot
+plt.show()
+```
+
+This code:
+1. Uses `rasterio` to read the TIFF file (more robust than PIL for geospatial data)
+2. Displays the data using matplotlib's `imshow` with the turbo colormap
+3. Adds a colorbar legend with a label
+4. Includes a title and proper layout adjustments
+
+Make sure to:
+1. Replace 'your_file.tiff' with your actual file path
+2. Install rasterio if you haven't (`pip install rasterio`)
+3. The turbo colormap is available in newer versions of matplotlib (2.2.0+)
+
+If you need a different colormap, you can replace 'turbo' with others like 'viridis', 'plasma', or 'jet'.

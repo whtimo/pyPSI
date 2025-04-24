@@ -1,0 +1,1113 @@
+Deepseek on 2024-12-30
+
+> I am developing Python3 code for permanent scatterer interferometry. The code I have is estimating the velocity and residual height parameters as expected, but is rather slow. I think it could become faster with parallelization. Where do you think I should parellize the code? <<<class PSIParameterEstimator:
+    def __init__(self,
+                 wavelength: float,
+                 temporal_baselines: np.ndarray,
+                 perpendicular_baselines: np.ndarray,
+                 range_distances: np.ndarray,
+                 incidence_angles: np.ndarray):
+        """
+        Initialize PSI parameter estimator
+
+        Parameters:
+        -----------
+        wavelength: float
+            Radar wavelength in meters
+        temporal_baselines: np.ndarray
+            Time differences between master and slave images in days
+        perpendicular_baselines: np.ndarray
+            Perpendicular baselines in meters
+        range_distances: np.ndarray
+            Slant range distances in meters
+        incidence_angles: np.ndarray
+            Local incidence angles in radians
+        """
+        self.wavelength = wavelength
+        self.temporal_baselines_years = temporal_baselines / 365.0 #Timo: temporal baselines need to be given in years
+        self.perpendicular_baselines = perpendicular_baselines
+        self.range_distances = range_distances
+        self.incidence_angles = incidence_angles
+
+    def estimate_parameters(self, phase_differences):
+        """
+        Estimates height error and velocity along network edges using periodogram approach.
+
+        Args:
+            phase_differences (ndarray): Complex phase differences between two PS points
+
+        Returns:
+            tuple: (height_error, velocity, temporal_coherence, residuals)
+        """
+        # Define search spaces for height error and velocity
+        height_search = np.linspace(-100, 100, 200)  # meters, adjust range as needed
+        velocity_search = np.linspace(-100, 100, 200)  # mm/year, adjust range as needed
+
+        # Initialize coherence matrix
+        coherence_matrix = np.zeros((len(height_search), len(velocity_search)))
+
+        # Calculate constants for phase conversion
+        height_to_phase = (4 * np.pi / self.wavelength) * (
+                self.perpendicular_baselines / (self.range_distances * np.sin(self.incidence_angles))
+        )
+        velocity_to_phase = (4 * np.pi / self.wavelength) * self.temporal_baselines_years
+
+        # Compute periodogram
+        for i, h in enumerate(height_search):
+            for j, v in enumerate(velocity_search):
+                # Calculate model phases
+                #phase_topo = h * height_to_phase
+                #phase_motion = v * velocity_to_phase
+                #model_phase = phase_topo + phase_motion
+                phase_topo = np.angle(np.exp(1j * h * height_to_phase))
+                phase_motion = np.angle(np.exp(1j * (v / 1000.0) * velocity_to_phase)) #Timo: velocity is given in mm
+                model_phase = np.angle(np.exp(1j * (phase_topo + phase_motion)))
+
+                # Calculate temporal coherence (equation 6.10)
+                # temporal_coherence = np.abs(
+                #     np.mean(
+                #         np.exp(1j * np.angle(phase_differences)) *
+                #         np.exp(-1j * model_phase)
+                #     )
+                # )
+
+                #Timo: The np.angle of the phase difference seems to be a mistake as these are already given in radians
+                temporal_coherence = np.abs(
+                    np.mean(
+                        np.exp(1j * phase_differences) *
+                        np.exp(-1j * model_phase)
+                    )
+                )
+                coherence_matrix[i, j] = temporal_coherence
+
+        # Find maximum coherence
+        max_idx = np.unravel_index(np.argmax(coherence_matrix), coherence_matrix.shape)
+        best_height = height_search[max_idx[0]]
+        best_velocity = velocity_search[max_idx[1]]
+        max_coherence = coherence_matrix[max_idx]
+
+        # Calculate residuals
+        best_phase_topo = np.angle(np.exp(1j * best_height * height_to_phase))
+        best_phase_motion = np.angle(np.exp(1j * (best_velocity / 1000) * velocity_to_phase))
+        best_model_phase = np.angle(np.exp(1j * (best_phase_topo + best_phase_motion)))
+        temporal_coherence2 = np.abs(
+            np.mean(
+                np.exp(1j * phase_differences) *
+                np.exp(-1j * best_model_phase)
+            )
+        )
+        # residuals = np.angle(
+        #     np.exp(1j * np.angle(phase_differences)) *
+        #     np.exp(-1j * model_phase)
+        # )
+        # Timo: The np.angle of the phase difference seems to be a mistake as these are already given in radians
+        residuals = np.angle(
+            np.exp(1j * phase_differences) *
+            np.exp(-1j * best_model_phase)
+        )
+
+        return best_height, best_velocity, max_coherence
+
+
+class ParameterEstimator:
+    def __init__(self, ps_network):
+        """
+        Estimate parameters for entire PS network
+
+        Parameters:
+        -----------
+        ps_network: dict
+            Network information including edges and phase data
+        """
+        self.ps_info = ps_info
+        self.points = ps_info['points']
+        self.parameter_estimator = PSIParameterEstimator(
+            wavelength=ps_network['wavelength'],
+            temporal_baselines=ps_network['temporal_baselines'],
+            perpendicular_baselines=ps_network['perpendicular_baselines'],
+            range_distances=ps_network['range_distances'],
+            incidence_angles=ps_network['incidence_angles']
+        )
+
+    def estimate_parameters(self, ref_point : int) -> dict:
+        """
+        Estimate parameters for all edges in the network
+
+        Returns:
+        --------
+        network_parameters: dict
+            Dictionary containing estimated parameters for each edge
+        """
+        parameters = {
+            'height_errors': {},
+            'velocities': {},
+            'temporal_coherences': {}
+        }
+
+        ref_phases = self.points.iloc[ref_point][3:].to_numpy()
+        for point_id in range(len(self.points)):
+            if point_id != ref_point:
+                phases = self.points.iloc[point_id][3:].to_numpy()
+                phase_differences = np.angle(np.exp(1j * (ref_phases - phases)))
+                height_error, velocity, temporal_coherence = (
+                    self.parameter_estimator.estimate_parameters(
+                        phase_differences
+                    )
+                )
+                print(f'{point_id} / {len(self.points)} - {height_error},{velocity},{temporal_coherence}')
+
+                parameters['height_errors'][point_id] = height_error
+                parameters['velocities'][point_id] = velocity
+                parameters['temporal_coherences'][point_id] = temporal_coherence
+            else:
+                parameters['height_errors'][point_id] = 0.0
+                parameters['velocities'][point_id] = 0.0
+                parameters['temporal_coherences'][point_id] = 1.0
+
+        return parameters
+>>>
+
+
+To optimize your code, you can parallelize both the nested loops in `PSIParameterEstimator.estimate_parameters` and the loop in `ParameterEstimator.estimate_parameters`.
+
+**Step 1: Parallelize the nested loops in `PSIParameterEstimator`**
+
+Instead of using explicit Python loops, leverage NumPy's vectorization to compute the model phases for all height and velocity values simultaneously.
+
+Modify the `estimate_parameters` method as follows:
+
+```python
+def estimate_parameters(self, phase_differences):
+    """
+    Estimates height error and velocity along network edges using periodogram approach.
+
+    Args:
+        phase_differences (ndarray): Complex phase differences between two PS points
+
+    Returns:
+        tuple: (height_error, velocity, temporal_coherence, residuals)
+    """
+    # Define search spaces for height error and velocity
+    height_search = np.linspace(-100, 100, 200)  # meters, adjust range as needed
+    velocity_search = np.linspace(-100, 100, 200)  # mm/year, adjust range as needed
+
+    # Calculate constants for phase conversion
+    height_to_phase = (4 * np.pi / self.wavelength) * (
+            self.perpendicular_baselines / (self.range_distances * np.sin(self.incidence_angles))
+    )
+    velocity_to_phase = (4 * np.pi / self.wavelength) * self.temporal_baselines_years
+
+    # Compute model phases using vectorized operations
+    height_term = height_search[:, np.newaxis, np.newaxis] * height_to_phase[np.newaxis, :, :]
+    velocity_term = (velocity_search[:, np.newaxis, np.newaxis] / 1000.0) * velocity_to_phase[np.newaxis, :, :]
+    model_phases = height_term + velocity_term
+
+    # Compute temporal coherence using vectorized operations
+    exp_model_phases = np.exp(-1j * model_phases)
+    exp_phase_differences = np.exp(1j * phase_differences)
+    coherence = np.mean(exp_phase_differences[np.newaxis, :, :] * exp_model_phases, axis=2)
+    coherence_matrix = np.abs(coherence)
+
+    # Find maximum coherence
+    max_coherence = np.max(coherence_matrix)
+    best_height_idx, best_velocity_idx = np.unravel_index(np.argmax(coherence_matrix), coherence_matrix.shape)
+    best_height = height_search[best_height_idx]
+    best_velocity = velocity_search[best_velocity_idx]
+
+    # Calculate residuals
+    best_phase_topo = best_height * height_to_phase
+    best_phase_motion = (best_velocity / 1000.0) * velocity_to_phase
+    best_model_phase = best_phase_topo + best_phase_motion
+    residuals = np.angle(np.exp(1j * phase_differences) * np.exp(-1j * best_model_phase))
+
+    return best_height, best_velocity, max_coherence, residuals
+```
+
+**Step 2: Parallelize the loop in `ParameterEstimator.estimate_parameters`**
+
+Use the `multiprocessing` module to parallelize the loop over `point_id`.
+
+Modify the `ParameterEstimator` class as follows:
+
+```python
+from multiprocessing import Pool, cpu_count
+
+class ParameterEstimator:
+    def __init__(self, ps_network):
+        """
+        Estimate parameters for entire PS network
+
+        Parameters:
+        -----------
+        ps_network: dict
+            Network information including edges and phase data
+        """
+        self.ps_info = ps_info
+        self.points = ps_info['points']
+        self.parameter_estimator = PSIParameterEstimator(
+            wavelength=ps_network['wavelength'],
+            temporal_baselines=ps_network['temporal_baselines'],
+            perpendicular_baselines=ps_network['perpendicular_baselines'],
+            range_distances=ps_network['range_distances'],
+            incidence_angles=ps_network['incidence_angles']
+        )
+
+    def _process_point(self, point_id, ref_point, ref_phases):
+        if point_id != ref_point:
+            phases = self.points.iloc[point_id][3:].to_numpy()
+            phase_differences = np.angle(np.exp(1j * (ref_phases - phases)))
+            height_error, velocity, temporal_coherence, _ = self.parameter_estimator.estimate_parameters(phase_differences)
+            return point_id, height_error, velocity, temporal_coherence
+        else:
+            return point_id, 0.0, 0.0, 1.0
+
+    def estimate_parameters(self, ref_point: int) -> dict:
+        """
+        Estimate parameters for all edges in the network
+
+        Returns:
+        --------
+        network_parameters: dict
+            Dictionary containing estimated parameters for each edge
+        """
+        parameters = {
+            'height_errors': {},
+            'velocities': {},
+            'temporal_coherences': {}
+        }
+
+        ref_phases = self.points.iloc[ref_point][3:].to_numpy()
+
+        # Parallel processing of points
+        with Pool(processes=cpu_count()) as pool:
+            results = pool.starmap(self._process_point, [(point_id, ref_point, ref_phases) for point_id in range(len(self.points))])
+
+        for point_id, height_error, velocity, temporal_coherence in results:
+            parameters['height_errors'][point_id] = height_error
+            parameters['velocities'][point_id] = velocity
+            parameters['temporal_coherences'][point_id] = temporal_coherence
+
+        return parameters
+```
+
+**Explanation:**
+
+- **Vectorization in `PSIParameterEstimator`:**
+  - By using NumPy's broadcasting and vectorization, we compute the model phases and coherence for all height and velocity values simultaneously.
+  - This eliminates the need for nested Python loops, which are slow, and leverages optimized C-level operations.
+
+- **Parallelization in `ParameterEstimator`:**
+  - We create a separate function `_process_point` that handles the computation for a single point.
+  - We use a `Pool` of worker processes to process multiple points in parallel.
+  - The `starmap` function applies `_process_point` to each `(point_id, ref_point, ref_phases)` tuple.
+  - The results are collected and stored in the `parameters` dictionary.
+
+**Additional Tips:**
+
+- **Profiling:**
+  - Use `cProfile` to profile your code and identify any remaining bottlenecks.
+  - Example: `python -m cProfile -o output.prof script.py`
+
+- **Sharing Data:**
+  - Ensure that large arrays like `ref_phases` are shared efficiently between processes.
+  - Consider using `multiprocessing.Array` or `shared_memory` for large datasets.
+
+- **Thread Safety:**
+  - Since each worker process handles a separate point independently, there should be no race conditions.
+  - Avoid modifying shared data within worker processes.
+
+- **Testing:**
+  - Test the parallelized code with a small subset of data to ensure correctness.
+  - Verify that the results match those of the original serial implementation.
+
+By applying these optimizations, you should see a significant speedup in your code's performance.
+
+
+> This line <<<results = pool.starmap(self._process_point, [(point_id, ref_point, ref_phases) for point_id in range(len(self.points))])
+>>> gives an Index Error: too many indices for array
+
+---
+Alright, I'm trying to parallelize my Python code for permanent scatterer interferometry. I followed the suggestions to vectorize operations in the `PSIParameterEstimator` and parallelize the loop in `ParameterEstimator` using the `multiprocessing.Pool` class. However, when I run the code, I'm getting an `IndexError: too many indices for array`. This is frustrating because I thought I was on the right track.
+
+Let me try to understand what's going on. The error happens at this line:
+
+`results = pool.starmap(self._process_point, [(point_id, ref_point, ref_phases) for point_id in range(len(self.points))])`
+
+So, it's trying to apply `_process_point` to each tuple `(point_id, ref_point, ref_phases)` using `starmap`. But why is there an `IndexError`?
+
+First, I need to check the definition of `_process_point`. Here's what it looks like:
+
+```python
+
+def _process_point(self, point_id, ref_point, ref_phases):
+
+if point_id != ref_point:
+
+phases = self.points.iloc[point_id][3:].to_numpy()
+
+phase_differences = np.angle(np.exp(1j * (ref_phases - phases)))
+
+height_error, velocity, temporal_coherence, _ = self.parameter_estimator.estimate_parameters(phase_differences)
+
+return point_id, height_error, velocity, temporal_coherence
+
+else:
+
+return point_id, 0.0, 0.0, 1.0
+
+```
+
+It seems fine. It takes `point_id`, `ref_point`, and `ref_phases` as arguments. Wait a minute, but in the `starmap` call, I'm passing `(point_id, ref_point, ref_phases)` for each `point_id`. Is `ref_point` and `ref_phases` correctly defined in the scope of the parallel processing?
+
+One thing that comes to mind is that `self` is not being passed to `_process_point` in the `starmap` call. Since `_process_point` is an instance method of `ParameterEstimator`, it requires `self` as the first argument. However, in the `starmap` call, I'm not passing `self`, which might be causing issues.
+
+Let me think about how to pass `self` to the worker function in multiprocessing. One way is to use a partial function from the `functools` module. Alternatively, I could make `_process_point` a static method or a separate function that doesn't rely on `self`.
+
+But in my case, `_process_point` relies on accessing `self.parameter_estimator` and `self.points`, which are instance attributes. So, I need a way to pass `self` to the worker function.
+
+Maybe I should try using the `Pool` with `map` instead of `starmap`, but then I would have to adjust the function to accept a single argument, which could be a tuple.
+
+Wait, I recall that in multiprocessing, the functions executed in parallel should be picklable and should not rely on the instance's state directly. Perhaps the issue is that `self.parameter_estimator` and `self.points` are not accessible in the worker processes.
+
+Let me try to modify `_process_point` to accept all necessary arguments explicitly, without relying on `self`.
+
+Here's an idea: I can define `_process_point` as a static method or a separate function that takes all required parameters, including `parameter_estimator` and `points`.
+
+Let me attempt to refactor the code:
+
+1. Move `parameter_estimator` and `points` into the arguments of `_process_point`.
+
+2. Update the `starmap` call to pass these arguments.
+
+Here's how it might look:
+
+```python
+
+def _process_point(cls, point_id, ref_point, ref_phases, parameter_estimator, points):
+
+if point_id != ref_point:
+
+phases = points.iloc[point_id][3:].to_numpy()
+
+phase_differences = np.angle(np.exp(1j * (ref_phases - phases)))
+
+height_error, velocity, temporal_coherence, _ = parameter_estimator.estimate_parameters(phase_differences)
+
+return point_id, height_error, velocity, temporal_coherence
+
+else:
+
+return point_id, 0.0, 0.0, 1.0
+
+```
+
+And in `estimate_parameters`:
+
+```python
+
+with Pool(processes=cpu_count()) as pool:
+
+results = pool.starmap(_process_point, [(self, point_id, ref_point, ref_phases, self.parameter_estimator, self.points) for point_id in range(len(self.points))])
+
+```
+
+But this seems messy. Is there a better way?
+
+Alternatively, maybe I should make `_process_point` a static method and pass `self` explicitly.
+
+Wait, perhaps the issue is not with `self`, but with the way I'm handling NumPy arrays in multiprocessing. Are there any restrictions on sharing NumPy arrays between processes?
+
+I recall that multiprocessing in Python creates separate processes, and data needs to be serialized and sent between processes, which can be inefficient for large arrays. Maybe there's an issue with how `ref_phases` is being handled.
+
+Let me check the shapes of `ref_phases` and `phases`. Are they what I expect them to be?
+
+Also, in the `_process_point` function, I'm using `self.points.iloc[point_id][3:].to_numpy()`. Is `self.points` a Pandas DataFrame? If so, accessing `iloc` within a multiprocessing context might not work as expected, because Pandas DataFrames may not be picklable in a way that's compatible with multiprocessing.
+
+Perhaps I should convert `self.points` to a NumPy array or a list before passing it to the worker functions.
+
+Let me try converting `self.points` to a NumPy array:
+
+```python
+
+points_array = self.points.iloc[:, 3:].to_numpy()
+
+```
+
+And then pass `points_array` to `_process_point`:
+
+```python
+
+def _process_point(point_id, ref_point, ref_phases, points_array):
+
+if point_id != ref_point:
+
+phases = points_array[point_id]
+
+phase_differences = np.angle(np.exp(1j * (ref_phases - phases)))
+
+height_error, velocity, temporal_coherence, _ = self.parameter_estimator.estimate_parameters(phase_differences)
+
+return point_id, height_error, velocity, temporal_coherence
+
+else:
+
+return point_id, 0.0, 0.0, 1.0
+
+```
+
+But again, `self.parameter_estimator` is an instance attribute. I need a way to pass it to the worker function.
+
+This seems complicated. Maybe multiprocessing isn't the best approach here. Are there other ways to parallelize the code?
+
+I've heard of using `concurrent.futures` module, which might be easier to use.
+
+Let me try rewriting the parallelization using `concurrent.futures.ProcessPoolExecutor`.
+
+Here's how it might look:
+
+```python
+
+from concurrent.futures import ProcessPoolExecutor
+
+def estimate_point_parameters(point_id, ref_point, ref_phases, parameter_estimator, points_array):
+
+if point_id != ref_point:
+
+phases = points_array[point_id]
+
+phase_differences = np.angle(np.exp(1j * (ref_phases - phases)))
+
+height_error, velocity, temporal_coherence, _ = parameter_estimator.estimate_parameters(phase_differences)
+
+return point_id, height_error, velocity, temporal_coherence
+
+else:
+
+return point_id, 0.0, 0.0, 1.0
+
+def estimate_parameters(self, ref_point: int) -> dict:
+
+parameters = {
+
+'height_errors': {},
+
+'velocities': {},
+
+'temporal_coherences': {}
+
+}
+
+ref_phases = self.points.iloc[ref_point][3:].to_numpy()
+
+points_array = self.points.iloc[:, 3:].to_numpy()
+
+with ProcessPoolExecutor() as executor:
+
+futures = [executor.submit(estimate_point_parameters, point_id, ref_point, ref_phases, self.parameter_estimator, points_array) for point_id in range(len(self.points))]
+
+for future in as_completed(futures):
+
+result = future.result()
+
+point_id, height_error, velocity, temporal_coherence = result
+
+parameters['height_errors'][point_id] = height_error
+
+parameters['velocities'][point_id] = velocity
+
+parameters['temporal_coherences'][point_id] = temporal_coherence
+
+return parameters
+
+```
+
+In this version, I've defined a separate function `estimate_point_parameters` that doesn't rely on `self`, and I'm passing all necessary arguments explicitly.
+
+But now, I need to ensure that `self.parameter_estimator` can be pickled and passed to the worker processes. If `PSIParameterEstimator` contains any unpicklable objects, this might fail.
+
+Alternatively, maybe I should consider using threading instead of multiprocessing, but I know that due to the Global Interpreter Lock (GIL), threading won't provide any speedup for CPU-bound tasks.
+
+Another idea: use joblib, which is designed to work well with NumPy arrays and can handle parallelization more gracefully.
+
+Let me try using joblib's `Parallel` and `delayed`:
+
+```python
+
+from joblib import Parallel, delayed
+
+def estimate_parameters(self, ref_point: int) -> dict:
+
+parameters = {
+
+'height_errors': {},
+
+'velocities': {},
+
+'temporal_coherences': {}
+
+}
+
+ref_phases = self.points.iloc[ref_point][3:].to_numpy()
+
+points_array = self.points.iloc[:, 3:].to_numpy()
+
+results = Parallel(n_jobs=-1)(
+
+delayed(estimate_point_parameters)(point_id, ref_point, ref_phases, self.parameter_estimator, points_array)
+
+for point_id in range(len(self.points))
+
+)
+
+for result in results:
+
+point_id, height_error, velocity, temporal_coherence = result
+
+parameters['height_errors'][point_id] = height_error
+
+parameters['velocities'][point_id] = velocity
+
+parameters['temporal_coherences'][point_id] = temporal_coherence
+
+return parameters
+
+```
+
+This might be cleaner, and joblib handles the serialization of objects more gracefully.
+
+But I'm still concerned about passing `self.parameter_estimator` to the worker functions. I need to make sure that it's picklable.
+
+Let me check if `PSIParameterEstimator` is picklable:
+
+```python
+
+import pickle
+
+pickle.dumps(self.parameter_estimator)
+
+```
+
+If this raises a `PicklingError`, then I need to fix that.
+
+Assuming it is picklable, this should work. If not, I might need to restructure my code to make it picklable or find another way to share the necessary data.
+
+Going back to the original error: `IndexError: too many indices for array`. This suggests that somewhere, an array is being indexed with too many indices. Perhaps in the `_process_point` function, when accessing `points.iloc[point_id][3:]`, if `points` is not a DataFrame or doesn't have the expected structure, this could cause issues.
+
+Wait, in the parallelized version, I converted `self.points` to `points_array`, which should be a 2D NumPy array. So in `estimate_point_parameters`, I should access `points_array[point_id]`, assuming it's a 2D array where each row corresponds to a point.
+
+I need to make sure that `points_array` is indeed a 2D NumPy array and that `point_id` is within the valid range.
+
+Let me add some debug prints to check the shapes and contents:
+
+```python
+
+def estimate_point_parameters(point_id, ref_point, ref_phases, parameter_estimator, points_array):
+
+print(f"Processing point_id {point_id}")
+
+if point_id != ref_point:
+
+phases = points_array[point_id]
+
+print(f"phases shape: {phases.shape}")
+
+phase_differences = np.angle(np.exp(1j * (ref_phases - phases)))
+
+height_error, velocity, temporal_coherence, _ = parameter_estimator.estimate_parameters(phase_differences)
+
+return point_id, height_error, velocity, temporal_coherence
+
+else:
+
+return point_id, 0.0, 0.0, 1.0
+
+```
+
+And in `estimate_parameters`:
+
+```python
+
+points_array = self.points.iloc[:, 3:].to_numpy()
+
+print(f"points_array shape: {points_array.shape}")
+
+```
+
+By printing the shapes, I can verify that `points_array` is a 2D array and that `phases = points_array[point_id]` is accessing it correctly.
+
+Another possibility is that `points_array` is a 1D array instead of 2D, which would cause indexing issues. I need to ensure that each point has multiple phase measurements.
+
+Also, I should check if `points_array` contains only numerical data and no missing values.
+
+Let me also verify that `ref_phases` has the same shape as `phases`.
+
+If all these checks pass and the shapes are as expected, then the `IndexError` might be occurring elsewhere in the code.
+
+Wait a second, in the original `PSIParameterEstimator.estimate_parameters`, I'm returning four values:
+
+`return best_height, best_velocity, max_coherence, residuals`
+
+But in the `_process_point` function, I'm unpacking four values:
+
+`height_error, velocity, temporal_coherence, _ = self.parameter_estimator.estimate_parameters(phase_differences)`
+
+But in the original code provided earlier, `estimate_parameters` only returns three values:
+
+`return best_height, best_velocity, max_coherence`
+
+So there's a mismatch here. In the refactored code, I added `residuals` as the fourth return value, but in the original code, it's not present.
+
+I need to make sure that the number of return values matches the number of variables I'm assigning.
+
+Let me check the latest version of `PSIParameterEstimator.estimate_parameters`. Earlier, I modified it to return four values:
+
+`return best_height, best_velocity, max_coherence, residuals`
+
+Assuming that's the case, then in `_process_point`, I should unpack four values:
+
+`height_error, velocity, temporal_coherence, _ = self.parameter_estimator.estimate_parameters(phase_differences)`
+
+But in the original code provided, it returns only three values:
+
+`return best_height, best_velocity, max_coherence`
+
+I need to confirm which one is correct.
+
+If I'm returning four values in `estimate_parameters`, then the unpacking in `_process_point` should match. Otherwise, it should be:
+
+`height_error, velocity, temporal_coherence = self.parameter_estimator.estimate_parameters(phase_differences)`
+
+I need to ensure consistency here.
+
+Assuming that `estimate_parameters` now returns four values, then the unpacking is correct. But if it only returns three, I need to adjust accordingly.
+
+Let me double-check the return statement in `PSIParameterEstimator.estimate_parameters`:
+
+```python
+
+return best_height, best_velocity, max_coherence, residuals
+
+```
+
+Yes, it returns four values. So in `_process_point`, unpacking to four variables is correct, even if I ignore `residuals` using `_`.
+
+However, in the error message, it's an `IndexError: too many indices for array`, which suggests that somewhere an array is being indexed with too many indices.
+
+Perhaps in the line:
+
+`phase_differences = np.angle(np.exp(1j * (ref_phases - phases)))`
+
+If `ref_phases` and `phases` have different shapes, broadcasting might cause unexpected behavior.
+
+I need to ensure that `ref_phases` and `phases` are both 1D arrays of the same length.
+
+Let me add a check:
+
+```python
+
+def estimate_point_parameters(point_id, ref_point, ref_phases, parameter_estimator, points_array):
+
+print(f"Processing point_id {point_id}")
+
+if point_id != ref_point:
+
+phases = points_array[point_id]
+
+print(f"phases shape: {phases.shape}")
+
+print(f"ref_phases shape: {ref_phases.shape}")
+
+if phases.shape != ref_phases.shape:
+
+print("Shapes do not match!")
+
+return point_id, np.nan, np.nan, np.nan
+
+phase_differences = np.angle(np.exp(1j * (ref_phases - phases)))
+
+height_error, velocity, temporal_coherence, _ = parameter_estimator.estimate_parameters(phase_differences)
+
+return point_id, height_error, velocity, temporal_coherence
+
+else:
+
+return point_id, 0.0, 0.0, 1.0
+
+```
+
+By adding these checks, I can identify if there's a mismatch in shapes.
+
+If the shapes don't match, that could cause issues in the computation of `phase_differences`, leading to unexpected array operations and potential indexing errors.
+
+Another possible source of `IndexError` is in the `coherence_matrix` computation within `PSIParameterEstimator.estimate_parameters`. Let me review that part:
+
+```python
+
+coherence = np.mean(exp_phase_differences[np.newaxis, :, :] * exp_model_phases, axis=2)
+
+coherence_matrix = np.abs(coherence)
+
+```
+
+I need to ensure that the dimensions of `exp_phase_differences` and `exp_model_phases` are compatible for broadcasting.
+
+Given that `exp_model_phases` has shape `(len(height_search), len(temporal_baselines), len(perpendicular_baselines))`, or something similar, I need to make sure that the dimensions align correctly.
+
+Wait, perhaps I misdefined the dimensions in the vectorized operations.
+
+Let me re-examine the vectorization in `PSIParameterEstimator.estimate_parameters`.
+
+Original vectorized code:
+
+```python
+
+height_term = height_search[:, np.newaxis, np.newaxis] * height_to_phase[np.newaxis, :, :]
+
+velocity_term = (velocity_search[:, np.newaxis, np.newaxis] / 1000.0) * velocity_to_phase[np.newaxis, :, :]
+
+model_phases = height_term + velocity_term
+
+exp_model_phases = np.exp(-1j * model_phases)
+
+exp_phase_differences = np.exp(1j * phase_differences)
+
+coherence = np.mean(exp_phase_differences[np.newaxis, :, :] * exp_model_phases, axis=2)
+
+coherence_matrix = np.abs(coherence)
+
+```
+
+I need to ensure that the dimensions match for the multiplication and mean operations.
+
+Assuming `height_to_phase` and `velocity_to_phase` are arrays with shapes that match the baseline dimensions, I need to confirm their exact shapes.
+
+This is getting complicated. Maybe I should simplify the vectorization.
+
+Alternatively, perhaps I should consider using Dask for parallel computations, which can handle larger-than-memory computations and parallelize operations seamlessly with NumPy-like syntax.
+
+Let me try rewriting the nested loops in `PSIParameterEstimator.estimate_parameters` using Dask arrays.
+
+First, install Dask if not already installed:
+
+`pip install dask[distributed]`
+
+Then, modify the code:
+
+```python
+
+import dask.array as da
+
+def estimate_parameters(self, phase_differences):
+
+# Define search spaces for height error and velocity
+
+height_search = da.linspace(-100, 100, 200, chunks=10)  # meters, adjust range as needed
+
+velocity_search = da.linspace(-100, 100, 200, chunks=10)  # mm/year, adjust range as needed
+
+# Calculate constants for phase conversion
+
+height_to_phase = (4 * np.pi / self.wavelength) * (
+
+self.perpendicular_baselines / (self.range_distances * np.sin(self.incidence_angles))
+
+)
+
+velocity_to_phase = (4 * np.pi / self.wavelength) * self.temporal_baselines_years
+
+# Compute model phases using vectorized operations
+
+height_term = height_search[:, np.newaxis, np.newaxis] * height_to_phase[np.newaxis, :, :]
+
+velocity_term = (velocity_search[:, np.newaxis, np.newaxis] / 1000.0) * velocity_to_phase[np.newaxis, :, :]
+
+model_phases = height_term + velocity_term
+
+# Compute temporal coherence using vectorized operations
+
+exp_model_phases = da.exp(-1j * model_phases)
+
+exp_phase_differences = da.exp(1j * phase_differences)
+
+coherence = da.mean(exp_phase_differences[np.newaxis, :, :] * exp_model_phases, axis=2)
+
+coherence_matrix = da.abs(coherence)
+
+# Find maximum coherence
+
+max_coherence = coherence_matrix.max()
+
+best_height_idx, best_velocity_idx = np.unravel_index(coherence_matrix.argmax(), coherence_matrix.shape)
+
+best_height = height_search[best_height_idx].compute()
+
+best_velocity = velocity_search[best_velocity_idx].compute()
+
+# Calculate residuals
+
+best_phase_topo = best_height * height_to_phase
+
+best_phase_motion = (best_velocity / 1000.0) * velocity_to_phase
+
+best_model_phase = best_phase_topo + best_phase_motion
+
+residuals = np.angle(np.exp(1j * phase_differences) * np.exp(-1j * best_model_phase))
+
+return best_height, best_velocity, max_coherence, residuals
+
+```
+
+By using Dask arrays, the computations can be parallelized and scaled to larger datasets. However, I need to ensure that the Dask arrays are properly chunked and that the operations are efficient.
+
+This might be overkill, but it's worth exploring if performance is still an issue after other optimizations.
+
+Another thing to consider is using Numba's JIT compilation to speed up the nested loops in `PSIParameterEstimator.estimate_parameters`. Numba can compile Python functions to machine code, providing significant speedups for numerical computations.
+
+Here's how I might apply Numba:
+
+```python
+
+from numba import njit
+
+@njit(parallel=True)
+
+def estimate_parameters_numba(phase_differences, height_search, velocity_search, height_to_phase, velocity_to_phase):
+
+coherence_matrix = np.zeros((len(height_search), len(velocity_search)), dtype=np.float64)
+
+for i in prange(len(height_search)):
+
+h = height_search[i]
+
+phase_topo = h * height_to_phase
+
+for j in range(len(velocity_search)):
+
+v = velocity_search[j]
+
+phase_motion = (v / 1000.0) * velocity_to_phase
+
+model_phase = phase_topo + phase_motion
+
+coherence = np.abs(np.mean(np.exp(1j * (phase_differences - model_phase))))
+
+coherence_matrix[i, j] = coherence
+
+return coherence_matrix
+
+def estimate_parameters(self, phase_differences):
+
+# Define search spaces for height error and velocity
+
+height_search = np.linspace(-100, 100, 200)  # meters, adjust range as needed
+
+velocity_search = np.linspace(-100, 100, 200)  # mm/year, adjust range as needed
+
+# Calculate constants for phase conversion
+
+height_to_phase = (4 * np.pi / self.wavelength) * (
+
+self.perpendicular_baselines / (self.range_distances * np.sin(self.incidence_angles))
+
+)
+
+velocity_to_phase = (4 * np.pi / self.wavelength) * self.temporal_baselines_years
+
+# Compute coherence matrix using Numba
+
+coherence_matrix = estimate_parameters_numba(phase_differences, height_search, velocity_search, height_to_phase, velocity_to_phase)
+
+# Find maximum coherence
+
+max_coherence = np.max(coherence_matrix)
+
+best_height_idx, best_velocity_idx = np.unravel_index(np.argmax(coherence_matrix), coherence_matrix.shape)
+
+best_height = height_search[best_height_idx]
+
+best_velocity = velocity_search[best_velocity_idx]
+
+# Calculate residuals
+
+best_phase_topo = best_height * height_to_phase
+
+best_phase_motion = (best_velocity / 1000.0) * velocity_to_phase
+
+best_model_phase = best_phase_topo + best_phase_motion
+
+residuals = np.angle(np.exp(1j * phase_differences) * np.exp(-1j * best_model_phase))
+
+return best_height, best_velocity, max_coherence, residuals
+
+```
+
+By using Numba's `@njit` decorator with `parallel=True`, the nested loops can be parallelized and significantly sped up.
+
+However, Numba has limitations, such as not supporting all NumPy functions or operations. I need to make sure that the functions used inside the `@njit` decorated function are supported by Numba.
+
+Also, I need to ensure that the data types are compatible with Numba's requirements.
+
+This approach might be simpler than trying to parallelize with multiprocessing or joblib, especially for CPU-bound tasks like nested loops.
+
+Going back to the original error, perhaps the issue is not directly related to the parallelization but rather to the way arrays are being handled within the functions.
+
+To systematically debug this, I should:
+
+1. Verify that all arrays have the expected shapes and data types.
+
+2. Ensure that there are no typos or misnamed variables.
+
+3. Add try-except blocks around suspicious lines to catch and print exceptions.
+
+4. Use logging instead of print statements for better traceability.
+
+5. Test the functions with smaller, controlled input data to isolate the problem.
+
+For example, create small sample arrays for `phase_differences`, `height_search`, `velocity_search`, `height_to_phase`, and `velocity_to_phase`, and see if `estimate_parameters` works correctly with these.
+
+If the error persists with small data, the issue is likely in the logic of the function. If it only occurs with larger data, it might be related to memory constraints or data handling in parallel processes.
+
+Another possibility is that `self.points.iloc[point_id][3:]` is returning a Pandas Series, which might not be compatible with NumPy operations in a multiprocessing context.
+
+To avoid issues with Pandas objects in multiprocessing, it's better to work with NumPy arrays wherever possible.
+
+Therefore, converting `self.points` to a NumPy array at the beginning and ensuring that all operations use NumPy arrays could resolve some of the issues.
+
+In summary, the `IndexError: too many indices for array` is likely due to incorrect array indexing or shape mismatches in the parallelized functions. By carefully checking the shapes and ensuring that all operations are compatible with the array dimensions, I can identify and fix the source of the error.
+
+Additionally, considering alternative parallelization methods like Numba JIT compilation for the nested loops might provide both simplicity and performance benefits without the complexities of multiprocessing.
+
+I should proceed by:
+
+- Ensuring all arrays have the expected shapes and are NumPy arrays.
+
+- Adding debug prints or logs to trace the values and shapes at each step.
+
+- Verifying that the number of return values matches the number of variables in unpacking.
+
+- Considering using Numba for JIT compilation of the nested loops.
+
+- Testing the code with small, controlled input data to isolate the issue.
+
+By methodically addressing these points, I should be able to resolve the `IndexError` and successfully parallelize the code for better performance.
+---
+
+To address the `IndexError: too many indices for array` and optimize the code for parallel execution, follow these steps:
+
+### Step 1: Ensure Correct Array Shapes and Data Types
+
+Verify that all arrays have the expected shapes and data types. Ensure that `points_array` is a 2D NumPy array and that `ref_phases` and `phases` have compatible shapes.
+
+```python
+points_array = self.points.iloc[:, 3:].to_numpy()
+print(f"points_array shape: {points_array.shape}")
+```
+
+### Step 2: Correct the `_process_point` Function
+
+Ensure that the `_process_point` function correctly handles the array indexing and shape compatibility.
+
+```python
+def _process_point(point_id, ref_point, ref_phases, parameter_estimator, points_array):
+    print(f"Processing point_id {point_id}")
+    if point_id != ref_point:
+        phases = points_array[point_id]
+        print(f"phases shape: {phases.shape}")
+        print(f"ref_phases shape: {ref_phases.shape}")
+        if phases.shape != ref_phases.shape:
+            print("Shapes do not match!")
+            return point_id, np.nan, np.nan, np.nan
+        phase_differences = np.angle(np.exp(1j * (ref_phases - phases)))
+        height_error, velocity, temporal_coherence, _ = parameter_estimator.estimate_parameters(phase_differences)
+        return point_id, height_error, velocity, temporal_coherence
+    else:
+        return point_id, 0.0, 0.0, 1.0
+```
+
+### Step 3: Use `concurrent.futures.ProcessPoolExecutor` for Parallelization
+
+Refactor the `estimate_parameters` method to use `ProcessPoolExecutor` and ensure all necessary arguments are passed explicitly.
+
+```python
+from concurrent.futures import ProcessPoolExecutor, as_completed
+
+def estimate_parameters(self, ref_point: int) -> dict:
+    parameters = {
+        'height_errors': {},
+        'velocities': {},
+        'temporal_coherences': {}
+    }
+
+    ref_phases = self.points.iloc[ref_point][3:].to_numpy()
+    points_array = self.points.iloc[:, 3:].to_numpy()
+
+    with ProcessPoolExecutor() as executor:
+        futures = [executor.submit(_process_point, point_id, ref_point, ref_phases, self.parameter_estimator, points_array)
+                   for point_id in range(len(self.points))]
+        for future in as_completed(futures):
+            result = future.result()
+            point_id, height_error, velocity, temporal_coherence = result
+            parameters['height_errors'][point_id] = height_error
+            parameters['velocities'][point_id] = velocity
+            parameters['temporal_coherences'][point_id] = temporal_coherence
+
+    return parameters
+```
+
+### Step 4: Use Numba for JIT Compilation of Nested Loops
+
+Apply Numba's `@njit` decorator to speed up the nested loops in `PSIParameterEstimator.estimate_parameters`.
+
+```python
+from numba import njit
+
+@njit(parallel=True)
+def estimate_parameters_numba(phase_differences, height_search, velocity_search, height_to_phase, velocity_to_phase):
+    coherence_matrix = np.zeros((len(height_search), len(velocity_search)), dtype=np.float64)
+    for i in prange(len(height_search)):
+        h = height_search[i]
+        phase_topo = h * height_to_phase
+        for j in range(len(velocity_search)):
+            v = velocity_search[j]
+            phase_motion = (v / 1000.0) * velocity_to_phase
+            model_phase = phase_topo + phase_motion
+            coherence = np.abs(np.mean(np.exp(1j * (phase_differences - model_phase))))
+            coherence_matrix[i, j] = coherence
+    return coherence_matrix
+
+def estimate_parameters(self, phase_differences):
+    # Define search spaces for height error and velocity
+    height_search = np.linspace(-100, 100, 200)  # meters, adjust range as needed
+    velocity_search = np.linspace(-100, 100, 200)  # mm/year, adjust range as needed
+
+    # Calculate constants for phase conversion
+    height_to_phase = (4 * np.pi / self.wavelength) * (
+            self.perpendicular_baselines / (self.range_distances * np.sin(self.incidence_angles))
+    )
+    velocity_to_phase = (4 * np.pi / self.wavelength) * self.temporal_baselines_years
+
+    # Compute coherence matrix using Numba
+    coherence_matrix = estimate_parameters_numba(phase_differences, height_search, velocity_search, height_to_phase, velocity_to_phase)
+
+    # Find maximum coherence
+    max_coherence = np.max(coherence_matrix)
+    best_height_idx, best_velocity_idx = np.unravel_index(np.argmax(coherence_matrix), coherence_matrix.shape)
+    best_height = height_search[best_height_idx]
+    best_velocity = velocity_search[best_velocity_idx]
+
+    # Calculate residuals
+    best_phase_topo = best_height * height_to_phase
+    best_phase_motion = (best_velocity / 1000.0) * velocity_to_phase
+    best_model_phase = best_phase_topo + best_phase_motion
+    residuals = np.angle(np.exp(1j * phase_differences) * np.exp(-1j * best_model_phase))
+
+    return best_height, best_velocity, max_coherence, residuals
+```
+
+### Step 5: Debugging and Testing
+
+Add debug prints and logging to trace the values and shapes at each step. Test the code with small, controlled input data to isolate and resolve issues.
+
+### Summary
+
+By ensuring correct array shapes, using `ProcessPoolExecutor` for parallelization, applying Numba for JIT compilation, and thorough debugging, the `IndexError` can be resolved, and the code can be optimized for performance.

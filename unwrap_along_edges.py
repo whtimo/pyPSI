@@ -350,8 +350,8 @@ path_parameters = extract_path_parameters(G, paths, heights, velocities)
 """
 
 print("Load data")
-params = load_network_parameters('')
-df = pd.read_csv('')
+params = load_network_parameters('./ps_results.h5')
+df = pd.read_csv('./psc.csv')
 # Rename the unnamed first column to 'point_id'
 df = df.rename(columns={df.columns[0]: 'point_id'})
 # Extract coordinates
@@ -367,6 +367,6 @@ paths, distances = find_optimal_paths_to_reference(G, reference_point)
 print("Extract path parameters")
 path_parameters = extract_path_parameters(G, paths, heights, velocities, residuals)
 print('Save results')
-save_path_parameters(path_parameters, df, reference_point, '')
+save_path_parameters(path_parameters, df, reference_point, './ps_results_path.h5')
 
 

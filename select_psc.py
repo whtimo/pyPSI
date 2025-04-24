@@ -71,11 +71,11 @@ if __name__ == "__main__":
     # window_x = 5  # Example window size in x direction
     # window_y = 5  # Example window size in y direction
 
-    input_path = ""
-    output_path = ""
+    input_path = "./amplitude_dispersion.tif"
+    output_path = "./psc.csv"
     threshold = 0.25
-    window_x = 3
-    window_y = 3
+    window_x = 50
+    window_y = 50
 
     results = process_amplitude_dispersion(
         input_path,

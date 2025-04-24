@@ -79,7 +79,7 @@ def plot_velocities_on_sar(results, dim_image_path,
 
 
     # Read SAR image
-    product = esa_snappy.ProductIO.readProduct(input_dim_file)
+    product = esa_snappy.ProductIO.readProduct(dim_image_path)
 
     # Get dimensions
     width = product.getSceneRasterWidth()
@@ -193,5 +193,5 @@ results = load_path_parameters('')
 plot_velocities_on_sar(
     results,
     dim_image_path=input_dim_file,
-    output_path='',
+    output_path='./output.png',
     marker_size=5, dpi=600)

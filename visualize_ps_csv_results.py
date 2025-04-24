@@ -207,7 +207,7 @@ plot_velocities_on_sar(
 """
 ref_point = find_matching_point_index('', '', '')
 
-results = load_csv_data('')
+results = load_csv_data('./psc.csv')
 
 plot_velocities_on_sar(
     results,

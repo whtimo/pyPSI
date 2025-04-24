@@ -323,8 +323,8 @@ master_image_height = 2700
 grid_size = (master_image_width, master_image_height)
 
 # Set paths
-input_file = Path('')
-output_dir = Path('')
+input_file = Path('./ps_results_path.h5') #Timo: Path to the psc results file
+output_dir = Path('./residuals') #Timo: Output path for the interpolated residuals
 output_dir.mkdir(exist_ok=True)
 
 # Load data

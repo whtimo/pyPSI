@@ -28,7 +28,7 @@ amplitude = np.sqrt(line_data)
 
 # Read the CSV file with points
 #points_df = pd.read_csv('path_to_your_points.csv')
-points_df = pd.read_csv('/home/timo/Data/LVS1_snap/psc.csv')
+points_df = pd.read_csv('./psc.csv')
 
 # Create the visualization
 plt.figure(figsize=(12, 8))
@@ -57,5 +57,5 @@ plt.xlabel('Range [pixels]')
 plt.ylabel('Azimuth [pixels]')
 plt.legend()
 #plt.grid(True)
-plt.savefig('', dpi=150, bbox_inches='tight')
+plt.savefig('./output.png', dpi=150, bbox_inches='tight')
 #plt.show()

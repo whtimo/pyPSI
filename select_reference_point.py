@@ -143,6 +143,6 @@ def select_reference_point(params,
 
 
 #params = load_network_parameters('filename')
-params = load_network_parameters('')
+params = load_network_parameters('./ps_results.h5')
 reference_point = select_reference_point(params, temporal_coherence_threshold=0.9, min_connections=10)
-save_reference_point(reference_point, '')
+save_reference_point(reference_point, './ref_point.txt')

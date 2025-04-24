@@ -5,7 +5,7 @@ import glob
 import pandas as pd
 
 # Read the CSV file
-df = pd.read_csv('')
+df = pd.read_csv('./psc.csv')
 dates = df.columns[3:].tolist()  # Get dates from columns, skipping first 3 columns
 
 # Get the dates for the epochs we want to visualize
@@ -46,6 +46,6 @@ plt.colorbar(im, cax=cbar_ax, label='APS (rad)')
 
 # Adjust layout
 plt.tight_layout()
-plt.savefig('', dpi=600, bbox_inches='tight')
+plt.savefig('output.png', dpi=600, bbox_inches='tight')
 
 #plt.show()

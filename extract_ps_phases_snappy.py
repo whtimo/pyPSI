@@ -117,10 +117,11 @@ def extract_ps_phases(ps_csv_path: str,
 # Example usage:
 if __name__ == "__main__":
     # Define paths
-    PS_CSV_PATH = ""
-    input_dim_file = ''
-    APS_DIR = ""
-    OUTPUT_CSV_PATH = ""
+    PS_CSV_PATH = "./ps.csv"  # Timo: CSV file with the selected PS points
+    input_dim_file = './subset_0_of_S1A_IW_SLC__1SDV_20230702T134404_20230702T134432_049245_05EBEA_A4DF_Orb_Stack_esd_deb_ifg.dim'
+    #Path to BEAM-DIMAP stack including the topo-removed interferograms
+    APS_DIR = "./aps"  # Timo: Path to the APS files
+    OUTPUT_CSV_PATH = "./ps_phases.csv"  # Timo: Output
 
     # Extract phases and save to CSV
     extract_ps_phases(PS_CSV_PATH, input_dim_file, APS_DIR, OUTPUT_CSV_PATH)

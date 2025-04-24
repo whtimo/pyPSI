@@ -111,9 +111,9 @@ def extract_ps_phases(ps_csv_path: str,
 # Example usage:
 if __name__ == "__main__":
     # Define paths
-    PS_CSV_PATH = ""
-    INTERFEROGRAM_DIR = ""
-    OUTPUT_CSV_PATH = ""
+    PS_CSV_PATH = "./psc.csv" #Timo: CSV file with the selected PSC points
+    INTERFEROGRAM_DIR = "./topo" #Timo: Path to the opo-removed interferograms
+    OUTPUT_CSV_PATH = "./psc_phases.csv" #Timo: Output
 
     # Extract phases and save to CSV
     extract_ps_phases(PS_CSV_PATH, INTERFEROGRAM_DIR, OUTPUT_CSV_PATH)

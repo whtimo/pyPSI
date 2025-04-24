@@ -5,7 +5,7 @@ import rasterio
 
 # Read the complex SAR data using rasterio
 #with rasterio.open('path_to_your_complex_sar.tiff') as src:
-with rasterio.open('') as src:
+with rasterio.open('./resampled/TSX-1_0_2010-09-19.tiff') as src: #Timo: Path to master tiff file
     # Read the complex data
     complex_data = src.read(1)
     # Get the transform for correct coordinate mapping
@@ -16,7 +16,7 @@ amplitude = np.abs(complex_data)
 
 # Read the CSV file with points
 #points_df = pd.read_csv('path_to_your_points.csv')
-points_df = pd.read_csv('')
+points_df = pd.read_csv('./psc.csv')
 
 # Create the visualization
 plt.figure(figsize=(12, 8))
@@ -45,5 +45,5 @@ plt.xlabel('Range [pixels]')
 plt.ylabel('Azimuth [pixels]')
 plt.legend()
 #plt.grid(True)
-plt.savefig('', dpi=150, bbox_inches='tight')
+plt.savefig('./output.png', dpi=150, bbox_inches='tight')
 #plt.show()

@@ -80,11 +80,11 @@ def plot_temporal_coherence_histogram(params):
     plt.tight_layout()
 
     # Show plot
-    plt.savefig('', dpi=600, bbox_inches='tight')
+    plt.savefig('histogram.png', dpi=600, bbox_inches='tight')
     #plt.show()
 
 
 # Load and plot
-filename = ''
+filename = './psc_results.h5'
 params = load_network_parameters(filename)
 plot_temporal_coherence_histogram(params)

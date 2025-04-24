@@ -77,7 +77,7 @@ def plot_velocities_on_sar(results, sar_image_path,
 
 
     # Read SAR image
-    with rasterio.open(sar_image_path) as src:
+    with rasterio.open('./resampled/TSX-1_0_2010-09-19.tiff') as src:  # Timo: Path to master tiff file
         sar_image = src.read(1)  # Read first band
         transform = src.transform
 

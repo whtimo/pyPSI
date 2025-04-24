@@ -71,7 +71,7 @@ def process_phase_residuals(input_dir, output_dir, spatial_filter_size):
 
 # Example usage:
 process_phase_residuals(
-    input_dir='path/to/input/directory',
-    output_dir='path/to/output/directory',
-    spatial_filter_size=5.0
+    input_dir='./residuals', #Timo: Path containing the residual images
+    output_dir='./aps', #Timo: Output path for the APS
+    spatial_filter_size=5.0 #Timo: This filter size can (and should) be larger
 )

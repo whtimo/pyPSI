@@ -201,9 +201,9 @@ plot_velocities_on_sar(
 )
 """
 results = load_and_combine_csv_data(
-    velocity_csv='',
-    samples_csv='',
-    lines_csv=''
+    velocity_csv='./deftrend.csv',
+    samples_csv='./sample.csv',
+    lines_csv='./line.csv'
 )
 plot_velocities_on_sar(
     results,

@@ -378,7 +378,7 @@ class PSNetwork:
 
 # Read the CSV file
 #df = pd.read_csv('your_file.csv')
-df = pd.read_csv('')
+df = pd.read_csv('./psc_phases.csv')
 
 # Get the column names that are dates (skip the first 3 columns)
 date_columns = df.columns[3:]
@@ -388,13 +388,13 @@ dates = [datetime.strptime(date, '%Y-%m-%d') for date in date_columns]
 
 print("Reading the network") # Adding some comments because it is a long process
 #ps_network = PSNetwork(dates, "/path/to/xml/files")
-ps_network = PSNetwork(dates, "", "", "")
+ps_network = PSNetwork(dates, "./topo", "./triangulation_results.csv", "./psc_phases.csv")
 
 parameter_estimator = NetworkParameterEstimator(ps_network)
 print("Start parameter estimation") # Adding some comments because it is a long process
 params = parameter_estimator.estimate_network_parameters()
 print("Save parameters") # Adding some comments because it is a long process
-save_network_parameters(params, ps_network, '')
+save_network_parameters(params, ps_network, './psc_results.h5')
 
 
 

@@ -116,8 +116,8 @@ def calculate_amplitude_dispersion(
 
 if __name__ == "__main__":
 
-    input_dir = ""
-    output_file = ""
+    input_dir = "./resampled" #Timo: Path containing the resampled SAR images
+    output_file = "./amplitude_dispersion.tiff" #Timo: Output tiff
 
     try:
         stats = calculate_amplitude_dispersion(input_dir, output_file)

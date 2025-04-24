@@ -373,8 +373,8 @@ class PSInfo:
 
 start_time = time.perf_counter()
 # Read the CSV file
-df_psc = pd.read_csv('')
-df_ps = pd.read_csv('')
+df_psc = pd.read_csv('./ps.csv')
+df_ps = pd.read_csv('./ps_phases.csv')
 # Get the column names that are dates (skip the first 3 columns)
 date_columns = df_ps.columns[3:]
 
@@ -382,16 +382,17 @@ date_columns = df_ps.columns[3:]
 dates = [datetime.strptime(date, '%Y-%m-%d') for date in date_columns]
 
 #ref_point = 0
-ref_point = find_matching_point_index('', '', '')
+ref_point = find_matching_point_index('./ref_point.txt', './psc.csv', './ps.csv')
 #print("Reading the network") # Adding some comments because it is a long process
 #ps_network = PSNetwork(dates, "/path/to/xml/files")
-ps_info = PSInfo(dates, "",  "")
+ps_info = PSInfo(dates, "./topo",  "./ps_phases.csv")
 
 parameter_estimator = ParameterEstimator(ps_info)
 print("Start parameter estimation") # Adding some comments because it is a long process
 params = parameter_estimator.estimate_parameters(ref_point)
 print("Save parameters") # Adding some comments because it is a long process
-save_point_data_to_csv("", "", params)
+save_point_data_to_csv("./ps_phases.csv", "./ps_results.csv", params)
+
 end_time = time.perf_counter()
 elapsed_time = end_time - start_time
 print(f"Elapsed time: {elapsed_time:.4f} seconds")
